@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Red Team &mdash; Vulnerability Injection Console</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>RED TEAM</h1>
+    <span class="subtitle">Telco Vulnerability Injection Console</span>
+  </div>
+  <div class="target">
+    <span class="label">TARGET</span>
+    <code id="target-repo">&hellip;</code>
+    <span id="mode-badge" class="badge">&hellip;</span>
+  </div>
+</header>
+
+<main>
+  <section class="controls">
+    <div class="stats">
+      <div class="stat"><span id="stat-total">0</span><label>catalog entries</label></div>
+      <div class="stat"><span id="stat-injected">0</span><label>injected</label></div>
+      <div class="stat"><span id="stat-issues">0</span><label>issues opened</label></div>
+    </div>
+    <div class="actions">
+      <input id="filter" type="search" placeholder="Filter by title, category, CWE&hellip;" />
+      <button id="inject-all" class="btn danger">Inject entire catalog</button>
+      <button id="refresh" class="btn">Refresh</button>
+    </div>
+  </section>
+
+  <div id="banner" class="banner hidden"></div>
+
+  <section id="catalog" class="catalog"></section>
+</main>
+
+<div id="drawer" class="drawer hidden">
+  <div class="drawer-inner">
+    <button id="drawer-close" class="drawer-close">&times;</button>
+    <h2 id="drawer-title"></h2>
+    <div id="drawer-meta" class="drawer-meta"></div>
+    <h3>Description</h3>
+    <p id="drawer-desc"></p>
+    <h3>Injected artifact</h3>
+    <p class="mono" id="drawer-path"></p>
+    <pre><code id="drawer-code"></code></pre>
+    <h3>Remediation guidance</h3>
+    <p id="drawer-remediation"></p>
+    <button id="drawer-inject" class="btn danger wide">Inject this vulnerability</button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Purple Team SOC &mdash; Autonomous Remediation</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span>
+    <h1>PURPLE TEAM SOC</h1>
+    <span class="subtitle">Autonomous Remediation Monitoring</span>
+  </div>
+  <div class="topright">
+    <span class="label">MONITORING</span>
+    <code id="target-repo">&hellip;</code>
+    <span id="mode-badge" class="badge">&hellip;</span>
+    <span id="clock" class="clock"></span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-view="ops">Operations</button>
+  <button class="tab" data-view="leader">Leadership summary</button>
+</nav>
+
+<main id="view-ops">
+  <section class="tiles">
+    <div class="tile"><label>Issues raised</label><span id="t-issues">0</span><small id="t-issues-sub">by red team</small></div>
+    <div class="tile"><label>Active sessions</label><span id="t-active" class="accent">0</span><small id="t-active-sub">Devin working</small></div>
+    <div class="tile"><label>Completed</label><span id="t-completed" class="ok">0</span><small id="t-completed-sub">sessions</small></div>
+    <div class="tile"><label>Failed</label><span id="t-failed" class="bad">0</span><small id="t-failed-sub">sessions</small></div>
+    <div class="tile"><label>PRs opened</label><span id="t-prs">0</span><small>remediation PRs</small></div>
+    <div class="tile"><label>Success rate</label><span id="t-success">0%</span><small>completed / finished</small></div>
+  </section>
+
+  <section class="budget">
+    <div class="budget-head">
+      <h2>ACU budget</h2>
+      <span id="budget-text" class="muted"></span>
+    </div>
+    <div class="meter"><div id="budget-bar" class="meter-fill"></div><div id="budget-committed" class="meter-committed"></div></div>
+    <div class="budget-legend">
+      <span><i class="sw spend"></i> spent</span>
+      <span><i class="sw committed"></i> reserved by in-flight sessions</span>
+      <span id="guardrail-text" class="muted"></span>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Findings by category</h2>
+      <div id="category-chart" class="bars"></div>
+    </div>
+    <div class="panel">
+      <h2>Severity mix</h2>
+      <div id="severity-chart" class="bars"></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Issue feed &amp; remediation progress</h2>
+    <div class="table-wrap">
+      <table id="feed">
+        <thead>
+          <tr>
+            <th>Sev</th><th>Finding</th><th>Category</th><th>Issue</th>
+            <th>Devin session</th><th>Status</th><th>ACU</th><th>PR</th><th>Progress</th>
+          </tr>
+        </thead>
+        <tbody id="feed-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Live event log</h2>
+    <div id="log" class="log"></div>
+  </section>
+</main>
+
+<main id="view-leader" class="hidden">
+  <section id="verdict" class="verdict">
+    <div class="verdict-badge" id="verdict-badge">&hellip;</div>
+    <h2 id="verdict-headline">&hellip;</h2>
+  </section>
+  <section class="tiles">
+    <div class="tile"><label>Detection &rarr; PR coverage</label><span id="s-coverage">0%</span><small>issues closed by a Devin PR</small></div>
+    <div class="tile"><label>Median time to PR</label><span id="s-ttp">0m</span><small>issue opened &rarr; PR</small></div>
+    <div class="tile"><label>ACU per remediation</label><span id="s-acu">0</span><small>mean cost of a fix</small></div>
+    <div class="tile"><label>Budget consumed</label><span id="s-budget">0%</span><small id="s-budget-sub"></small></div>
+  </section>
+  <section class="panel">
+    <h2>Is this working?</h2>
+    <div id="answers" class="answers"></div>
+  </section>
+  <section class="panel">
+    <h2>Guardrails in force</h2>
+    <div id="guardrails" class="chips"></div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
