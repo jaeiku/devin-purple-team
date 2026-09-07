@@ -93,7 +93,7 @@ def issue_opened(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, Any]:
-    """Called by the GitHub Actions workflow (or the red team in demo mode)."""
+    """Called by the GitHub Actions workflow / webhook, or by the red team in demo mode."""
 
     log_event(
         SERVICE,

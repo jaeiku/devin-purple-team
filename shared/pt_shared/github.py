@@ -179,6 +179,31 @@ class GitHubClient:
                 page += 1
         return None
 
+    def list_open_issues(self, label: str) -> list[dict[str, Any]]:
+        """List open issues with a label, excluding pull requests."""
+
+        found: list[dict[str, Any]] = []
+        for page in range(1, 6):
+            response = self._request(
+                "GET",
+                f"/repos/{self._repo}/issues",
+                params={
+                    "state": "open",
+                    "labels": label,
+                    "per_page": 100,
+                    "page": page,
+                },
+            )
+            issues = response.json()
+            if not issues:
+                break
+            found.extend(
+                dict(issue)
+                for issue in issues
+                if "pull_request" not in issue
+            )
+        return found
+
     def create_issue(
         self,
         title: str,

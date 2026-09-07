@@ -101,11 +101,24 @@ def inject(
     else:
         result = _inject_live(db, vuln, record, settings)
 
-    if notify_blue_team and record.issue_number:
+    if settings.demo_mode and notify_blue_team and record.issue_number:
         # Commit first: the blue team writes to the same store, and holding an
         # open write transaction across the handoff would deadlock SQLite.
         db.commit()
         _notify_blue_team(db, record, settings)
+    elif not settings.demo_mode and record.issue_number:
+        log_event(
+            SERVICE,
+            "issue_opened_on_github",
+            f"issue #{record.issue_number} opened on GitHub; "
+            "blue team picks it up from GitHub",
+            data={
+                "issue_number": record.issue_number,
+                "issue_url": record.issue_url,
+            },
+            level="info",
+            db=db,
+        )
 
     return result
 
@@ -239,12 +252,10 @@ def _inject_live(
 def _notify_blue_team(
     db: Session, record: Injection, settings: Settings
 ) -> None:
-    """Directly hand the issue to the blue team backend.
+    """Stand in for GitHub's issue-opened event during demo mode.
 
-    In a live deployment the GitHub Actions ``issues: opened`` workflow in the
-    fork is what triggers the blue team. This direct call keeps the demo flow
-    working without a publicly reachable webhook endpoint; the blue team is
-    idempotent per issue number, so both paths can coexist safely.
+    Live deployments use the GitHub issue watcher, Actions workflow or raw
+    webhook instead; the blue team is idempotent per issue number.
     """
 
     payload = {
