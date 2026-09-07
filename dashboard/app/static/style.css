@@ -112,6 +112,9 @@ a:hover { text-decoration: underline; }
 .pill.pr_open { color: var(--warn); border-color: #6b5a1f; background: rgba(255,210,63,.12); }
 .pill.merged { color: var(--ok); border-color: #1f6b43; background: rgba(61,220,132,.12); }
 .pill.pr_closed, .pill.failed { color: var(--bad); border-color: #6b2029; background: rgba(255,77,94,.12); }
+.stage-cell { min-width: 150px; }
+.stage-cell .pill { display: inline-block; margin-bottom: 6px; }
+.stage-raw { font-size: 11px; line-height: 1.5; white-space: nowrap; }
 .pill.queued, .pill.refused { color: var(--muted); border-color: var(--line); background: var(--panel-2); }
 
 .progress { width: 120px; height: 8px; background: var(--panel-2); border-radius: 4px; overflow: hidden; }
