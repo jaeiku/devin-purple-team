@@ -107,7 +107,7 @@ function renderFeed(data) {
     const stage = s ? s.stage : inj.status;
     const progress = s ? STAGE_PROGRESS[s.stage] ?? 0 : inj.issue_number ? 20 : 0;
     const raw = s
-      ? `<div class="muted mono">session: ${escapeHtml(s.status)} · pr: ${escapeHtml(s.pr_state)}</div>`
+      ? `<div class="stage-raw muted mono">session: ${escapeHtml(s.status)}<br>pr: ${escapeHtml(s.pr_state)}</div>`
       : "";
     return `<tr class="sev-${inj.severity}">
       <td><span class="sev ${inj.severity}">${inj.severity}</span></td>
@@ -115,7 +115,7 @@ function renderFeed(data) {
       <td>${escapeHtml(data.category_labels[inj.category] || inj.category)}</td>
       <td>${inj.issue_number ? `<a href="${escapeHtml(inj.issue_url)}" target="_blank" rel="noopener">#${inj.issue_number}</a>` : "&mdash;"}</td>
       <td>${s && s.session_id ? `<a href="${escapeHtml(s.session_url)}" target="_blank" rel="noopener" class="mono">${escapeHtml(s.session_id)}</a>` : '<span class="muted">not started</span>'}</td>
-      <td><span class="pill ${escapeHtml(stage)}">${escapeHtml(stage)}</span>${raw}</td>
+      <td class="stage-cell"><span class="pill ${escapeHtml(stage)}">${escapeHtml(stage)}</span>${raw}</td>
       <td class="mono">${s ? `${s.acu_consumed} / ${s.acu_limit}` : "&mdash;"}</td>
       <td>${s && s.pr_url ? `<a href="${escapeHtml(s.pr_url)}" target="_blank" rel="noopener">PR</a>` : "&mdash;"}</td>
       <td><div class="progress"><div style="width:${progress}%"></div></div></td>
