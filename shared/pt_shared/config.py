@@ -36,6 +36,9 @@ class Settings(BaseSettings):
         default="https://api.devin.ai", alias="DEVIN_API_BASE"
     )
     github_token: str = Field(default="", alias="GITHUB_TOKEN")
+    issue_assignee: str = Field(
+        default="", alias="GITHUB_ISSUE_ASSIGNEE"
+    )
 
     # --- Target fork ------------------------------------------------------
     superset_fork_repo: str = Field(
@@ -68,6 +71,10 @@ class Settings(BaseSettings):
     @property
     def superset_owner(self) -> str:
         return self.superset_fork_repo.split("/", 1)[0]
+
+    @property
+    def effective_issue_assignee(self) -> str:
+        return self.issue_assignee or self.superset_owner
 
     @property
     def superset_name(self) -> str:

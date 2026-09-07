@@ -74,9 +74,24 @@ function render() {
       </div>`;
     card.querySelector("h3").textContent = v.title;
     card.querySelector(".desc").textContent = v.description;
-    card.querySelector(".status").textContent = injected
-      ? `issue #${injected.issue_number || "?"} · ${injected.status}`
-      : "not injected";
+    const status = card.querySelector(".status");
+    if (injected && injected.issue_number) {
+      status.append("issue ");
+      if (injected.issue_url) {
+        const issueLink = document.createElement("a");
+        issueLink.href = injected.issue_url;
+        issueLink.target = "_blank";
+        issueLink.rel = "noopener";
+        issueLink.textContent = `#${injected.issue_number}`;
+        issueLink.addEventListener("click", (event) => event.stopPropagation());
+        status.append(issueLink);
+      } else {
+        status.append(`#${injected.issue_number}`);
+      }
+      status.append(` · ${injected.status}`);
+    } else {
+      status.textContent = "not injected";
+    }
     card.querySelector("button").addEventListener("click", (event) => {
       event.stopPropagation();
       injectVuln(v.vuln_id);
@@ -117,7 +132,9 @@ async function injectVuln(vulnId) {
     const inj = result.injection;
     banner(
       result.created
-        ? `Injected ${vulnId} → branch ${inj.branch}, issue #${inj.issue_number}`
+        ? result.issue_created === false
+          ? `Re-injected ${vulnId} → branch ${inj.branch}; reused existing issue #${inj.issue_number} (no new issue created)`
+          : `Injected ${vulnId} → branch ${inj.branch}, issue #${inj.issue_number}`
         : `${vulnId} already injected (issue #${inj.issue_number}) — no duplicate created`,
       "ok"
     );

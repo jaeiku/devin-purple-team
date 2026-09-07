@@ -190,6 +190,7 @@ def _inject_live(
                     title=title,
                     body=catalog.issue_body(vuln, repo, record.commit_url),
                     labels=_labels(vuln),
+                    assignees=[settings.effective_issue_assignee],
                 )
                 created_issue = True
             else:
