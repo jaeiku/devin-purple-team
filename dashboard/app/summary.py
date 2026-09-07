@@ -59,30 +59,36 @@ def leader_summary(
         else 0.0
     )
 
+    in_flight = metrics["sessions_active"] + metrics["sessions_queued"]
+
     if issues == 0:
         verdict, headline = "idle", "No vulnerabilities injected yet."
+    elif in_flight:
+        verdict, headline = (
+            "in_progress",
+            f"{metrics['sessions_active']} remediation session(s) in flight "
+            f"({metrics['sessions_queued']} queued) across "
+            f"{issues} finding(s); {remediated} closed so far.",
+        )
+    elif metrics["sessions_refused_budget"]:
+        verdict, headline = (
+            "budget_blocked",
+            f"Remediation is paused: {metrics['sessions_refused_budget']} "
+            f"session(s) refused because the {metrics['acu_remaining']} ACU "
+            f"left under the ceiling cannot cover another "
+            f"{settings.max_acu_per_session} ACU session.",
+        )
     elif metrics["sessions_total"] == 0:
         verdict, headline = (
             "degraded",
             f"{issues} issue(s) raised but no Devin session was spawned - "
             "check the blue team trigger.",
         )
-    elif metrics["sessions_refused_budget"] and not metrics["sessions_active"]:
-        verdict, headline = (
-            "budget_blocked",
-            "Remediation is paused: the ACU budget ceiling was reached.",
-        )
     elif metrics["success_rate_pct"] >= 80.0 and remediated:
         verdict, headline = (
             "healthy",
             f"Autonomous remediation is working: {remediated}/{issues} "
             f"injected vulnerabilities closed by a Devin PR.",
-        )
-    elif metrics["sessions_active"]:
-        verdict, headline = (
-            "in_progress",
-            f"{metrics['sessions_active']} remediation session(s) in flight "
-            f"across {issues} open finding(s).",
         )
     else:
         verdict, headline = (
@@ -114,7 +120,9 @@ def leader_summary(
                 "question": "Is Devin acting on them autonomously?",
                 "answer": f"{metrics['sessions_total']} session(s) spawned, "
                 f"{metrics['sessions_active']} active, "
-                f"{metrics['sessions_completed']} completed.",
+                f"{metrics['sessions_queued']} queued, "
+                f"{metrics['sessions_completed']} completed, "
+                f"{metrics['sessions_refused_budget']} refused on budget.",
             },
             {
                 "question": "Are real fixes landing?",

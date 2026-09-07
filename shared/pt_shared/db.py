@@ -13,11 +13,13 @@ from contextlib import contextmanager
 from urllib.parse import urlparse
 
 from sqlalchemy import Engine, create_engine, event
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from .config import get_settings
 from .models import Base
+
+_SCHEMA_LOCK = 0x70757270  # advisory lock id guarding schema creation
 
 _engine: Engine | None = None
 _SessionLocal: sessionmaker[Session] | None = None
@@ -63,15 +65,29 @@ def get_sessionmaker() -> sessionmaker[Session]:
     return _SessionLocal
 
 
+def _create_all(engine: Engine) -> None:
+    """Create tables under a lock so parallel service startups don't race."""
+
+    if engine.dialect.name != "postgresql":
+        Base.metadata.create_all(engine)
+        return
+
+    # All three services call create_all at once against a fresh database;
+    # without serialisation they collide creating the shared ENUM types.
+    with engine.begin() as conn:
+        conn.exec_driver_sql("SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK,))
+        Base.metadata.create_all(conn)
+
+
 def init_db(retries: int = 30, delay: float = 2.0) -> None:
     """Create tables, waiting for the database to accept connections."""
 
     last_error: Exception | None = None
     for _ in range(retries):
         try:
-            Base.metadata.create_all(get_engine())
+            _create_all(get_engine())
             return
-        except OperationalError as exc:  # Postgres still starting up.
+        except (OperationalError, DBAPIError) as exc:  # DB still starting up.
             last_error = exc
             time.sleep(delay)
     raise RuntimeError(f"database unavailable: {last_error}")

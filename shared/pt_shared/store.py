@@ -164,7 +164,8 @@ def metrics(db: Session, budget_ceiling: float) -> dict[str, Any]:
         "remediated": remediated,
         "injections_by_category": by_category,
         "injections_by_severity": by_severity,
-        "sessions_total": len(sessions),
+        # Budget-refused records never became Devin sessions.
+        "sessions_total": len(sessions) - len(refused),
         "sessions_active": len(active),
         "sessions_queued": len(queued),
         "sessions_completed": len(completed),
