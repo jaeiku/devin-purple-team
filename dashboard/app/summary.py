@@ -46,7 +46,7 @@ def leader_summary(
         if session["status"] != "completed":
             continue
         start = _parse(session.get("created_at"))
-        end = _parse(session.get("updated_at"))
+        end = _parse(session.get("finished_at"))
         if start and end and end >= start:
             durations.append((end - start).total_seconds() / 60.0)
 
@@ -101,7 +101,7 @@ def leader_summary(
     return {
         "verdict": verdict,
         "headline": headline,
-        "detection_to_pr_coverage_pct": round(coverage, 1),
+        "remediation_coverage_pct": round(coverage, 1),
         "median_time_to_pr_minutes": round(_median(durations), 1),
         "mean_acu_per_remediation": round(acu_per_fix, 2),
         "budget_used_pct": metrics["budget_used_pct"],

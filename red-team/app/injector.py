@@ -88,9 +88,7 @@ def _new_injection(
     return record
 
 
-def inject(
-    db: Session, vuln_id: str, settings: Settings, notify_blue_team: bool = True
-) -> dict[str, Any]:
+def inject(db: Session, vuln_id: str, settings: Settings) -> dict[str, Any]:
     """Inject one new numbered instance of a catalog vulnerability."""
 
     vuln = catalog.get(vuln_id)
@@ -101,12 +99,12 @@ def inject(
     else:
         result = _inject_live(db, vuln, record, settings)
 
-    if settings.demo_mode and notify_blue_team and record.issue_number:
+    if settings.demo_mode and record.issue_number:
         # Commit first: the blue team writes to the same store, and holding an
         # open write transaction across the handoff would deadlock SQLite.
         db.commit()
         _notify_blue_team(db, record, settings)
-    elif not settings.demo_mode and record.issue_number:
+    elif not record.simulated:
         log_event(
             SERVICE,
             "issue_opened_on_github",
@@ -117,6 +115,15 @@ def inject(
                 "issue_url": record.issue_url,
             },
             level="info",
+            db=db,
+        )
+    elif not settings.demo_mode:
+        log_event(
+            SERVICE,
+            "github_token_missing",
+            "GITHUB_TOKEN not configured; injection simulated, no GitHub issue exists",
+            level="warning",
+            data={"vuln_id": record.vuln_id},
             db=db,
         )
 
@@ -274,6 +281,11 @@ def _notify_blue_team(
         response = httpx.post(
             f"{settings.blue_team_url.rstrip('/')}/api/events/issue-opened",
             json=payload,
+            headers=(
+                {"Authorization": f"Bearer {settings.blue_team_token}"}
+                if settings.blue_team_token
+                else None
+            ),
             timeout=30.0,
         )
         response.raise_for_status()

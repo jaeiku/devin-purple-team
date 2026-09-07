@@ -130,8 +130,7 @@ red team posts the simulated event directly to the blue team.
   blue team comment on issues and read PR merge state). Add *Workflows* and
   *Actions* if you want the optional GitHub Actions trigger installed for you.
 - The database schema includes numbered injection instances and PR state
-  tracking. If an existing Postgres volume is present after a schema change,
-  reset it with `docker compose down -v`.
+  tracking. Additive nullable columns are applied automatically at startup.
 
 ---
 
@@ -204,6 +203,7 @@ duplicate Devin sessions.
    DEVIN_API_KEY=...
    GITHUB_TOKEN=...            # repo scope on the fork only
    GITHUB_ISSUE_ASSIGNEE=...   # GitHub login assigned to red-team issues
+   BLUE_TEAM_TOKEN=...         # shared Actions/webhook push secret
    SUPERSET_FORK_REPO=jaeiku/superset
    MAX_ACU_PER_SESSION=10
    MAX_CONCURRENT_SESSIONS=2
@@ -255,14 +255,19 @@ Actions):
 | Secret | Purpose |
 | --- | --- |
 | `BLUE_TEAM_URL` | Public URL of the blue team backend for Actions |
-| `DEVIN_API_KEY` | Devin API key used by the blue team backend |
-| `MAX_ACU_PER_SESSION` | Optional per-session ACU cap |
+| `BLUE_TEAM_TOKEN` | Shared secret for Actions bearer authentication |
 
+Actions deliveries use bearer authentication, while raw GitHub webhooks use
+HMAC authentication over the request body. In live mode, push events are
+re-validated against GitHub: the issue must exist, be open, and carry a
+qualifying label. Thus a forged event can at most trigger remediation of a
+real red-team issue that the polling watcher would have handled anyway.
 The polling watcher, Actions workflow and webhook all use the same per-issue
 idempotency key, so duplicate delivery (e.g. one `opened` plus three `labeled`
 events for a single issue) collapses onto one Devin session; the extra
-deliveries are logged as `session_deduplicated`. For a local demo without a
-public URL, the polling watcher alone is sufficient.
+deliveries are logged as `session_deduplicated`. If `BLUE_TEAM_TOKEN` is
+empty, push endpoints are unauthenticated; this is acceptable only for a
+local demo.
 
 ---
 
@@ -324,7 +329,7 @@ The dashboard has two views:
   and a live structured-event log from all three services.
 - **Leadership** — a plain-language "is this working?" verdict
   (`idle / in_progress / healthy / attention / degraded / budget_blocked`) with
-  detection→PR coverage, median time to PR, mean ACU per remediation and budget
+  remediation coverage, median time to PR, mean ACU per remediation and budget
   consumed.
 
 Each issue row shows a unified **remediation stage** derived from two raw
@@ -336,6 +341,23 @@ and rendered in the viewer's local time zone.
 
 Every service logs single-line JSON to stdout (SIEM-friendly) and mirrors the
 same records into the `events` table, which is what the dashboard renders.
+
+“Median time to PR” is measured from session admission to session completion
+(PR opened).
+
+## Verification
+
+Demo-mode verification uses:
+
+```bash
+./scripts/demo.sh --all
+```
+
+The verified run injected 8 findings, created 8 sessions, merged 8 PRs, and
+remediated all 8 findings; guardrail queueing was observed with 2 concurrent
+sessions. Live verification observed issues #1, #4, #6, and #7, with PRs #2,
+#5, #8, and #9 merged; all three trigger paths were observed with dedupe.
+not verified: real ACU telemetry (consumption API not enabled on this account)
 
 ---
 
@@ -389,5 +411,5 @@ docker compose down       # stop
 docker compose down -v    # stop and wipe the datastore
 ```
 
-After a schema change, an existing Postgres volume must be reset with
-`docker compose down -v` before restarting the stack.
+Additive nullable schema columns are applied automatically at service startup,
+so an existing Postgres volume does not need to be reset after such a change.

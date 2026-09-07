@@ -29,20 +29,7 @@ ACTIVE_SESSION_STATUSES = (
 # Sessions that actually occupy a concurrency slot and reserve budget. Queued
 # sessions are waiting for a slot, so counting them would wedge the queue.
 IN_FLIGHT_SESSION_STATUSES = (SessionStatus.running, SessionStatus.blocked)
-TERMINAL_SESSION_STATUSES = (SessionStatus.completed, SessionStatus.failed)
-
-
 # --- injections -----------------------------------------------------------
-
-
-def list_injections_for_vuln(db: Session, vuln_id: str) -> list[Injection]:
-    return list(
-        db.scalars(
-            select(Injection)
-            .where(Injection.vuln_id == vuln_id)
-            .order_by(Injection.instance)
-        ).all()
-    )
 
 
 def next_instance(db: Session, vuln_id: str) -> int:
@@ -92,17 +79,6 @@ def active_session_count(db: Session) -> int:
         db.scalar(
             select(func.count(DevinSession.id)).where(
                 DevinSession.status.in_(IN_FLIGHT_SESSION_STATUSES)
-            )
-        )
-        or 0
-    )
-
-
-def queued_session_count(db: Session) -> int:
-    return int(
-        db.scalar(
-            select(func.count(DevinSession.id)).where(
-                DevinSession.status == SessionStatus.queued
             )
         )
         or 0

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
         default="https://api.devin.ai", alias="DEVIN_API_BASE"
     )
     github_token: str = Field(default="", alias="GITHUB_TOKEN")
+    blue_team_token: str = Field(default="", alias="BLUE_TEAM_TOKEN")
     issue_assignee: str = Field(
         default="", alias="GITHUB_ISSUE_ASSIGNEE"
     )

@@ -93,13 +93,6 @@ def overview(
     }
 
 
-@app.get("/api/metrics")
-def get_metrics(
-    db: Session = Depends(get_db), settings: Settings = Depends(get_settings)
-) -> dict[str, Any]:
-    return metrics(db, settings.global_budget_acu_ceiling)
-
-
 @app.get("/api/events")
 def get_events(
     limit: int = Query(default=100, ge=1, le=500),

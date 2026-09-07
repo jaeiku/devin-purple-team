@@ -250,11 +250,3 @@ class GitHubClient:
             json={"body": body},
         )
         return dict(response.json())
-
-    def list_issue_comments(self, number: int) -> list[dict[str, Any]]:
-        response = self._request(
-            "GET",
-            f"/repos/{self._repo}/issues/{number}/comments",
-            params={"per_page": 100},
-        )
-        return list(response.json())
