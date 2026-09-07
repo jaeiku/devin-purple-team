@@ -1,0 +1,1 @@
+"""Blue team service package."""
