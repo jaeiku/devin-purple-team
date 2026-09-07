@@ -1,15 +1,51 @@
 # Devin Purple Team
 
-An event-driven, Dockerized demonstration of **Devin autonomously remediating
-security vulnerabilities**. A red team injects deterministic synthetic
-vulnerabilities into a fork of Apache Superset and files GitHub issues; a blue
-team turns each issue into a budget-capped Devin session that opens a
-remediation pull request; a purple-team SOC dashboard makes the whole loop
-observable.
+**Autonomous security remediation for a telecom operator's Apache Superset
+monitoring stack.** A red team injects deterministic synthetic vulnerabilities
+into a fork of Apache Superset and files GitHub issues; the GitHub issue event
+triggers a blue team that opens a budget-capped Devin session, which
+investigates and opens a remediation pull request; a purple-team SOC dashboard
+makes the whole loop observable for engineers and engineering leaders.
+
+| | |
+| --- | --- |
+| Solution repo | <https://github.com/jaeiku/devin-purple-team> (this repo) |
+| Target fork | <https://github.com/jaeiku/superset> |
+| Red-team issues (remediated + in progress) | <https://github.com/jaeiku/superset/issues?q=label%3Ared-team> |
+| Devin fix PRs | <https://github.com/jaeiku/superset/pulls?q=is%3Apr+fix%28security%29> |
+| Demo video (Loom) | _coming soon_ |
+| Demo script | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) (English + 한국어) |
 
 Everything runs with `docker compose up`, and a **demo mode** (default) runs the
 complete lifecycle with **no credentials and no writes to GitHub** — ideal for
-recording a walkthrough.
+recording a walkthrough. **Live mode** performs real GitHub writes on the fork
+and real Devin sessions.
+
+## Background: why a telco, why now
+
+2025 was the worst year on record for Korean telecom security: all three major
+carriers suffered subscriber data breaches, drawing record regulatory fines and
+lasting reputational damage. Korea's three operators serve ~50 million people,
+so a single breach can expose 10M+ subscribers, and because identity is
+centrally keyed on the resident registration number plus phone number, a PII
+leak cascades into credit and payment fraud far more readily than elsewhere.
+
+This project imagines an operator that runs Apache Superset as its
+security-monitoring dashboard and asks: **when a vulnerability is found in that
+stack, can an autonomous agent fix it in minutes instead of waiting for a human
+on-call rotation?** Borrowing the red/blue team split from operator security
+practice:
+
+- **Red team** — scripted adversary. Plants a realistic telco vulnerability
+  (MD5-hashed subscriber PII, CDR deserialization, OSS/BSS credentials, ...)
+  and files a GitHub issue, exactly as a scanner or pentester would.
+- **Blue team** — automated defender. The GitHub issue is the trigger; it
+  spins up a Devin session under hard ACU/concurrency guardrails and tracks
+  it until the fix PR is merged.
+- **Purple team** — oversight layer. A SOC dashboard that shows both sides,
+  answers "is this working?" for leadership, and is where a future
+  red↔blue feedback loop (fix outcomes feeding back into detection scenarios)
+  would live — see *Next steps* in the demo script.
 
 ---
 
@@ -88,8 +124,10 @@ red team posts the simulated event directly to the blue team.
   *Settings -> General -> Features* or issue creation fails with HTTP 410.
 - Live mode also needs a Devin API key and a GitHub token with write access to
   that fork. For a fine-grained PAT: *Repository access -> Only select
-  repositories -> the fork*, then *Contents: Read and write* and
-  *Issues: Read and write*.
+  repositories -> the fork*, then *Contents: Read and write*, *Issues: Read and
+  write* and *Pull requests: Read and write* (the last one is what lets the
+  blue team comment on issues and read PR merge state). Add *Workflows* and
+  *Actions* if you want the optional GitHub Actions trigger installed for you.
 - The database schema includes numbered injection instances and PR state
   tracking. If an existing Postgres volume is present after a schema change,
   reset it with `docker compose down -v`.
@@ -138,15 +176,17 @@ Open:
   sessions active=2 queued=4 completed=2 failed=0 refused=0 PRs=2 ACU=12.1/100.0
   sessions active=0 queued=0 completed=8 failed=0 refused=0 PRs=8 ACU=44.0/100.0
 ==> PURPLE TEAM - dashboard state
-  verdict     : HEALTHY - 8/8 injected vulnerabilities closed by a Devin PR.
+  verdict     : HEALTHY - Autonomous remediation is working: 8 fix PR(s) opened,
+                8 merged (8/8 findings remediated).
 ```
 
 In demo mode the GitHub commit/issue, the Devin session and the resulting PR
-are simulated deterministically (stable pseudo-SHAs and per-instance issue
-numbers) and recorded in the shared store, so every state transition,
-guardrail decision and dashboard tile behaves exactly as it does in live mode.
-When the Devin consumption API is not enabled, finished sessions are charged a
-random 1-4 ACU estimate; this is not measured usage.
+(including its merge, after a short delay) are simulated deterministically
+(stable pseudo-SHAs and per-instance issue numbers) and recorded in the shared
+store, so every state transition, guardrail decision and dashboard tile behaves
+exactly as it does in live mode. Because no GitHub issue exists in demo mode,
+the red team posts the simulated issue event straight to the blue team; in live
+mode that hand-off does not exist and GitHub is the only trigger.
 
 Every Inject click creates a new numbered instance, branch and issue. The blue
 team remains idempotent per issue number, so retries for one issue do not create
@@ -170,13 +210,30 @@ duplicate Devin sessions.
    ```
 
 2. `docker compose up --build`.
-3. Pick a vulnerability in the red team console. Each Inject click commits the
-   synthetic file to a new `red-team/<vuln_id>/run-<n>` branch in the fork and
-   opens a labelled issue titled with `(run #n)`.
-4. The blue team creates a Devin session with `max_acu_limit` set from
-   `MAX_ACU_PER_SESSION`, comments the session link on the issue, polls the
-   session, and comments again with the PR when Devin finishes.
-   A blocked session with an open PR is treated as completed.
+3. Pick a vulnerability type in the red team console. Each Inject click commits
+   the synthetic file to a new `red-team/<vuln_id>/run-<n>` branch in the fork
+   and opens a labelled issue titled with `(run #n)`, assigned to
+   `GITHUB_ISSUE_ASSIGNEE` (defaults to the fork owner). The red team's job
+   ends here — it never calls the blue team in live mode.
+4. Within `POLL_INTERVAL_SECONDS` the blue team sees the new open `red-team`
+   issue on GitHub, runs the guardrails, and creates a Devin session with
+   `max_acu_limit` set from `MAX_ACU_PER_SESSION`. It comments the session link
+   on the issue, polls the session, and comments again with the PR when Devin
+   finishes. A Devin session that reports `blocked` while a PR exists is
+   treated as a completed session (Devin is waiting on human review).
+5. The blue team then watches the PR itself. The finding counts as
+   **remediated** only when the PR is merged; a closed-unmerged PR surfaces as
+   `pr_closed`.
+
+Observed timings from live runs: Inject → issue in a few seconds; issue →
+Devin session ≤ 15 s (poll interval); session → fix PR roughly 2–5 minutes
+depending on the vulnerability.
+
+ACU accounting: the blue team asks `GET /v1/enterprise/consumption` for real
+usage. That endpoint is only available on plans where it has been enabled; when
+it is not, a finished session is charged a **random 1–4 ACU estimate** (never
+above its cap) and the dashboard labels spend as *estimated*. The per-session
+`max_acu_limit` is still enforced by Devin regardless.
 
 Every secret is read from the environment; nothing is hardcoded.
 
@@ -201,9 +258,10 @@ Actions):
 | `MAX_ACU_PER_SESSION` | Optional per-session ACU cap |
 
 The polling watcher, Actions workflow and webhook all use the same per-issue
-idempotency key, so duplicate delivery does not create duplicate sessions.
-For a local demo without a public URL, demo mode uses the red team's direct
-simulated event instead of GitHub.
+idempotency key, so duplicate delivery (e.g. one `opened` plus three `labeled`
+events for a single issue) collapses onto one Devin session; the extra
+deliveries are logged as `session_deduplicated`. For a local demo without a
+public URL, the polling watcher alone is sufficient.
 
 ---
 
@@ -263,13 +321,17 @@ The dashboard has two views:
   sessions, PRs, success rate), an ACU-spend-vs-ceiling meter, category and
   severity breakdowns, a severity-coloured issue feed with per-issue progress,
   and a live structured-event log from all three services.
-- **Leadership** — a plain-language "is this working?" verdict with
+- **Leadership** — a plain-language "is this working?" verdict
+  (`idle / in_progress / healthy / attention / degraded / budget_blocked`) with
   detection→PR coverage, median time to PR, mean ACU per remediation and budget
   consumed.
 
-The dashboard's remediation stage lifecycle is `queued → investigating →
-pr_open → merged`; `failed`, `refused` and `pr_closed` are terminal
-alternatives. A finding is **remediated** only after its fix PR is merged.
+Each issue row shows a unified **remediation stage** derived from two raw
+states that are also displayed: the Devin session status and the PR state.
+The lifecycle is `queued → investigating → pr_open → merged`; `failed`,
+`refused` and `pr_closed` are terminal alternatives. A finding is
+**remediated** only after its fix PR is merged. Timestamps are stored in UTC
+and rendered in the viewer's local time zone.
 
 Every service logs single-line JSON to stdout (SIEM-friendly) and mirrors the
 same records into the `events` table, which is what the dashboard renders.
