@@ -16,7 +16,6 @@ the same target so the defence can be measured.
 | Red-team issues (remediated + in progress) | <https://github.com/jaeiku/superset/issues?q=label%3Ared-team> |
 | Devin fix PRs | <https://github.com/jaeiku/superset/pulls?q=is%3Apr+fix%28security%29> |
 | Demo video (Loom) | _coming soon_ |
-| Demo script | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) (English + 한국어) |
 
 Everything runs with `docker compose up`, and a **demo mode** (default) runs the
 complete lifecycle with **no credentials and no writes to GitHub** — ideal for
@@ -47,8 +46,7 @@ practice:
   answers "is this working?" for leadership.
 - **Purple team** — the exercise itself: red and blue against one target with
   shared telemetry. The red↔blue feedback loop (fix outcomes feeding back into
-  detection scenarios) is the natural next step — see *Next steps* in the demo
-  script.
+  detection scenarios) is the natural next step.
 
 ---
 
