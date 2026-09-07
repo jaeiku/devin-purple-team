@@ -193,7 +193,24 @@ def main() -> int:
         return 0
 
     overview = watch(args.timeout)
-    report(overview or call(f"{DASH}/api/overview"))
+    overview = overview or call(f"{DASH}/api/overview")
+    report(overview)
+
+    if args.budget_demo:
+        return 0
+
+    # Non-zero exit so CI fails when the loop does not actually close.
+    m = overview["metrics"]
+    problems = []
+    if m["sessions_failed"]:
+        problems.append(f"{m['sessions_failed']} session(s) failed")
+    if m["remediated"] < m["issues_created"]:
+        problems.append(
+            f"only {m['remediated']}/{m['issues_created']} finding(s) remediated"
+        )
+    if problems:
+        print(f"\n  {RED_C}FAILED{RESET}: {'; '.join(problems)}")
+        return 1
     return 0
 
 

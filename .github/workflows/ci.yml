@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check --isolated --select E,F,W --line-length 100 shared red-team blue-team dashboard scripts
+
+  demo-e2e:
+    # Runs the full lifecycle in DEMO_MODE: no credentials, no GitHub writes, no ACU spend.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Start the stack
+        run: |
+          cp .env.example .env
+          sed -i 's/^SIMULATED_SESSION_SECONDS=.*/SIMULATED_SESSION_SECONDS=4/' .env
+          docker compose up -d --build --wait
+      - name: Run the end-to-end demo
+        run: python3 scripts/simulate.py --all --timeout 300
+      - name: Service logs
+        if: failure()
+        run: docker compose logs --tail 200
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
