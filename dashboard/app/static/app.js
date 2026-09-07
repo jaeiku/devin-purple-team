@@ -128,6 +128,7 @@ function renderFeed(data) {
 
 function renderLog(events) {
   $("log").innerHTML = events
+    .filter((e) => e.service !== "dashboard")
     .map((e) => {
       const service = e.service.replace("-team", "");
       const ts = fmtLocal(e.ts);
