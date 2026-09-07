@@ -151,6 +151,7 @@ duplicate Devin sessions.
    DEMO_MODE=false
    DEVIN_API_KEY=...
    GITHUB_TOKEN=...            # repo scope on the fork only
+   GITHUB_ISSUE_ASSIGNEE=...   # GitHub login assigned to red-team issues
    SUPERSET_FORK_REPO=jaeiku/superset
    MAX_ACU_PER_SESSION=10
    MAX_CONCURRENT_SESSIONS=2

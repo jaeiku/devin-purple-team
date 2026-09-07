@@ -180,13 +180,24 @@ class GitHubClient:
         return None
 
     def create_issue(
-        self, title: str, body: str, labels: list[str]
+        self,
+        title: str,
+        body: str,
+        labels: list[str],
+        assignees: list[str] | None = None,
     ) -> dict[str, Any]:
         self._assert_allowed(self._repo)
+        payload: dict[str, Any] = {
+            "title": title,
+            "body": body,
+            "labels": labels,
+        }
+        if assignees:
+            payload["assignees"] = assignees
         response = self._request(
             "POST",
             f"/repos/{self._repo}/issues",
-            json={"title": title, "body": body, "labels": labels},
+            json=payload,
         )
         return dict(response.json())
 

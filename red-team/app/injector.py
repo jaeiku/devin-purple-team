@@ -186,6 +186,7 @@ def _inject_live(
                         vuln, repo, record.commit_url, record.branch
                     ),
                     labels=_labels(vuln),
+                    assignees=[settings.effective_issue_assignee],
                 )
                 created_issue = True
             else:
