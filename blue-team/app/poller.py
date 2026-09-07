@@ -5,7 +5,8 @@ Runs one loop every ``POLL_INTERVAL_SECONDS``:
 * refresh every non-terminal session from ``GET /v1/sessions/{id}``,
 * reconcile ACU spend (enterprise consumption endpoint when the key allows it,
   otherwise the reserved per-session cap is kept as a conservative charge),
-* record the resulting PR and comment it back on the GitHub issue,
+* record the resulting PR and comment it back on the GitHub issue; a blocked
+  session with a PR counts as completed,
 * release queued sessions once concurrency/budget headroom frees up.
 
 In demo mode the same loop drives a deterministic simulated lifecycle so the
@@ -216,6 +217,10 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
             mapped = _STATUS_MAP.get(raw_status, SessionStatus.running)
             pr = detail.get("pull_request") or {}
             pr_url = str(pr.get("url", "")) if isinstance(pr, dict) else ""
+            finish_detail = raw_status
+            if mapped == SessionStatus.blocked and pr_url:
+                mapped = SessionStatus.completed
+                finish_detail = "blocked (pull request opened)"
 
             if record.session_url in usage:
                 record.acu_consumed = usage[record.session_url]
@@ -225,7 +230,7 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
                     # No usage telemetry available: charge the reserved cap so
                     # the ceiling stays conservative rather than optimistic.
                     record.acu_consumed = record.acu_limit
-                _finish(db, record, mapped, raw_status, pr_url, settings)
+                _finish(db, record, mapped, finish_detail, pr_url, settings)
                 finished += 1
                 db.commit()
             else:

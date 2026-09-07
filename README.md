@@ -159,6 +159,7 @@ findings show as `dupe` instead of duplicating issues or Devin sessions.
 4. The blue team creates a Devin session with `max_acu_limit` set from
    `MAX_ACU_PER_SESSION`, comments the session link on the issue, polls the
    session, and comments again with the PR when Devin finishes.
+   A blocked session with an open PR is treated as completed.
 
 Every secret is read from the environment; nothing is hardcoded.
 
