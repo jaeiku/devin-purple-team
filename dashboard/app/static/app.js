@@ -1,12 +1,13 @@
 const $ = (id) => document.getElementById(id);
 
-const STATUS_PROGRESS = {
+const STAGE_PROGRESS = {
   queued: 10,
-  refused_budget: 0,
-  running: 55,
-  blocked: 45,
-  completed: 100,
+  investigating: 50,
+  pr_open: 80,
+  merged: 100,
+  pr_closed: 100,
   failed: 100,
+  refused: 0,
 };
 
 function escapeHtml(value) {
@@ -28,11 +29,13 @@ function renderTiles(m) {
   $("t-active-sub").textContent =
     `${m.sessions_total} spawned, ${m.sessions_queued} queued`;
   $("t-completed").textContent = m.sessions_completed;
-  $("t-completed-sub").textContent = `${m.remediated} findings remediated`;
+  $("t-completed-sub").textContent = `${m.remediated} findings remediated (merged)`;
   $("t-failed").textContent = m.sessions_failed;
   $("t-failed-sub").textContent =
     `${m.sessions_refused_budget} refused on budget`;
   $("t-prs").textContent = m.prs_opened;
+  $("t-prs-sub").textContent =
+    `${m.prs_merged} merged · ${m.prs_awaiting_review} awaiting review`;
   $("t-success").textContent = `${m.success_rate_pct}%`;
 }
 
@@ -72,15 +75,18 @@ function renderFeed(data) {
   });
   const rows = data.injections.map((inj) => {
     const s = sessionsByIssue[inj.issue_number] || null;
-    const status = s ? s.status : inj.status;
-    const progress = s ? STATUS_PROGRESS[s.status] ?? 0 : inj.issue_number ? 20 : 0;
+    const stage = s ? s.stage : inj.status;
+    const progress = s ? STAGE_PROGRESS[s.stage] ?? 0 : inj.issue_number ? 20 : 0;
+    const raw = s
+      ? `<div class="muted mono">session: ${escapeHtml(s.status)} · pr: ${escapeHtml(s.pr_state)}</div>`
+      : "";
     return `<tr class="sev-${inj.severity}">
       <td><span class="sev ${inj.severity}">${inj.severity}</span></td>
       <td>${escapeHtml(inj.title)}<br><span class="muted mono">${escapeHtml(inj.file_path)}</span></td>
       <td>${escapeHtml(data.category_labels[inj.category] || inj.category)}</td>
       <td>${inj.issue_number ? `<a href="${escapeHtml(inj.issue_url)}" target="_blank" rel="noopener">#${inj.issue_number}</a>` : "&mdash;"}</td>
       <td>${s && s.session_id ? `<a href="${escapeHtml(s.session_url)}" target="_blank" rel="noopener" class="mono">${escapeHtml(s.session_id)}</a>` : '<span class="muted">not started</span>'}</td>
-      <td><span class="pill ${status}">${escapeHtml(status)}</span></td>
+      <td><span class="pill ${escapeHtml(stage)}">${escapeHtml(stage)}</span>${raw}</td>
       <td class="mono">${s ? `${s.acu_consumed} / ${s.acu_limit}` : "&mdash;"}</td>
       <td>${s && s.pr_url ? `<a href="${escapeHtml(s.pr_url)}" target="_blank" rel="noopener">PR</a>` : "&mdash;"}</td>
       <td><div class="progress"><div style="width:${progress}%"></div></div></td>

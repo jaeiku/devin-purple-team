@@ -35,10 +35,18 @@ class Severity(str, enum.Enum):
     low = "low"
 
 
+class PRState(str, enum.Enum):
+    none = "none"
+    open = "open"
+    merged = "merged"
+    closed = "closed"
+
+
 class InjectionStatus(str, enum.Enum):
     pending = "pending"
     committed = "committed"
     issue_opened = "issue_opened"
+    pr_open = "pr_open"
     remediated = "remediated"
     failed = "failed"
 
@@ -50,6 +58,16 @@ class SessionStatus(str, enum.Enum):
     completed = "completed"
     failed = "failed"
     refused_budget = "refused_budget"
+
+
+class RemediationStage(str, enum.Enum):
+    queued = "queued"
+    investigating = "investigating"
+    pr_open = "pr_open"
+    merged = "merged"
+    pr_closed = "pr_closed"
+    failed = "failed"
+    refused = "refused"
 
 
 class Injection(Base):
@@ -140,6 +158,10 @@ class DevinSession(Base):
     acu_limit: Mapped[float] = mapped_column(Float, default=0.0)
     acu_consumed: Mapped[float] = mapped_column(Float, default=0.0)
     pr_url: Mapped[str] = mapped_column(String(500), default="")
+    pr_state: Mapped[PRState] = mapped_column(
+        Enum(PRState), default=PRState.none, index=True
+    )
+    pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     simulated: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
@@ -149,6 +171,24 @@ class DevinSession(Base):
     )
 
     injection: Mapped[Injection | None] = relationship(back_populates="sessions")
+
+    @property
+    def stage(self) -> RemediationStage:
+        if self.status == SessionStatus.refused_budget:
+            return RemediationStage.refused
+        if self.status == SessionStatus.failed:
+            return RemediationStage.failed
+        if self.pr_state == PRState.merged:
+            return RemediationStage.merged
+        if self.pr_state == PRState.closed:
+            return RemediationStage.pr_closed
+        if self.pr_state == PRState.open or (
+            self.status == SessionStatus.completed and self.pr_url
+        ):
+            return RemediationStage.pr_open
+        if self.status == SessionStatus.queued:
+            return RemediationStage.queued
+        return RemediationStage.investigating
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -166,6 +206,9 @@ class DevinSession(Base):
             "acu_limit": self.acu_limit,
             "acu_consumed": self.acu_consumed,
             "pr_url": self.pr_url,
+            "pr_state": self.pr_state.value,
+            "pr_number": self.pr_number,
+            "stage": self.stage.value,
             "simulated": self.simulated,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

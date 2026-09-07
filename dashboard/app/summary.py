@@ -68,7 +68,7 @@ def leader_summary(
             "in_progress",
             f"{metrics['sessions_active']} remediation session(s) in flight "
             f"({metrics['sessions_queued']} queued) across "
-            f"{issues} finding(s); {remediated} closed so far.",
+            f"{issues} finding(s); {metrics['prs_merged']} merged so far.",
         )
     elif metrics["sessions_refused_budget"]:
         verdict, headline = (
@@ -84,11 +84,12 @@ def leader_summary(
             f"{issues} issue(s) raised but no Devin session was spawned - "
             "check the blue team trigger.",
         )
-    elif metrics["success_rate_pct"] >= 80.0 and remediated:
+    elif metrics["success_rate_pct"] >= 80.0 and metrics["prs_opened"]:
         verdict, headline = (
             "healthy",
-            f"Autonomous remediation is working: {remediated}/{issues} "
-            f"injected vulnerabilities closed by a Devin PR.",
+            f"Autonomous remediation is working: {metrics['prs_opened']} "
+            f"fix PR(s) opened, {metrics['prs_merged']} merged "
+            f"({remediated}/{issues} findings remediated).",
         )
     else:
         verdict, headline = (
@@ -126,9 +127,10 @@ def leader_summary(
             },
             {
                 "question": "Are real fixes landing?",
-                "answer": f"{metrics['prs_opened']} pull request(s) opened; "
-                f"{remediated} finding(s) marked remediated "
-                f"({round(coverage, 1)}% coverage).",
+                "answer": f"{metrics['prs_opened']} PR(s) opened, "
+                f"{metrics['prs_awaiting_review']} awaiting review, "
+                f"{metrics['prs_merged']} merged; {remediated} finding(s) "
+                f"remediated ({round(coverage, 1)}% coverage).",
             },
             {
                 "question": "What is it costing?",
