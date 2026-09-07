@@ -145,6 +145,8 @@ In demo mode the GitHub commit/issue, the Devin session and the resulting PR
 are simulated deterministically (stable pseudo-SHAs and per-instance issue
 numbers) and recorded in the shared store, so every state transition,
 guardrail decision and dashboard tile behaves exactly as it does in live mode.
+When the Devin consumption API is not enabled, finished sessions are charged a
+random 1-4 ACU estimate; this is not measured usage.
 
 Every Inject click creates a new numbered instance, branch and issue. The blue
 team remains idempotent per issue number, so retries for one issue do not create
