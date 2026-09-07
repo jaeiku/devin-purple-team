@@ -75,8 +75,12 @@ recording a walkthrough.
 - **Manual prerequisite for live mode:** the fork **`jaeiku/superset` must
   already exist**. Nothing in this repo creates it, and the GitHub client
   hard-refuses to write to any repository other than `SUPERSET_FORK_REPO`.
-- Live mode also needs a Devin API key and a GitHub token with `repo` scope on
-  that fork (contents + issues write).
+  GitHub disables **Issues** on forks by default - enable it under
+  *Settings -> General -> Features* or issue creation fails with HTTP 410.
+- Live mode also needs a Devin API key and a GitHub token with write access to
+  that fork. For a fine-grained PAT: *Repository access -> Only select
+  repositories -> the fork*, then *Contents: Read and write* and
+  *Issues: Read and write*.
 
 ---
 
@@ -155,6 +159,7 @@ findings show as `dupe` instead of duplicating issues or Devin sessions.
 4. The blue team creates a Devin session with `max_acu_limit` set from
    `MAX_ACU_PER_SESSION`, comments the session link on the issue, polls the
    session, and comments again with the PR when Devin finishes.
+   A blocked session with an open PR is treated as completed.
 
 Every secret is read from the environment; nothing is hardcoded.
 
