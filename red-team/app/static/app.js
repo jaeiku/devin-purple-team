@@ -11,6 +11,24 @@ async function api(path, options) {
   return res.json();
 }
 
+function siblingUrl(port, override) {
+  if (override) return override;
+  const { protocol, hostname } = window.location;
+  const m = hostname.match(/^(\d+)--(.+)$/);
+  if (m) return `${protocol}//${port}--${m[2]}`;
+  return `${protocol}//${hostname}:${port}`;
+}
+
+function fmtLocal(iso) {
+  const raw = String(iso ?? "");
+  if (!raw) return raw;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function banner(message, kind) {
   const el = $("banner");
   el.textContent = message;
@@ -21,6 +39,7 @@ function banner(message, kind) {
 async function loadConfig() {
   const cfg = await api("/api/config");
   $("target-repo").textContent = cfg.target_repo;
+  $("dashboard-link").href = siblingUrl(cfg.dashboard_port, cfg.dashboard_url);
   const badge = $("mode-badge");
   badge.textContent = cfg.demo_mode ? "DEMO MODE" : "LIVE";
   badge.className = `badge ${cfg.demo_mode ? "demo" : "live"}`;
@@ -143,7 +162,7 @@ function openDrawer(v) {
       } else {
         chip.append(`#${instance.issue_number || "?"}`);
       }
-      chip.append(` · ${instance.status}`);
+      chip.append(` · ${instance.status} · ${fmtLocal(instance.created_at)}`);
       instanceList.append(chip);
     });
   $("drawer-desc").textContent = v.description;

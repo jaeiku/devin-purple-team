@@ -26,7 +26,7 @@ code, .mono, .log { font-family: "JetBrains Mono", ui-monospace, Menlo, monospac
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
   padding: 14px 24px; border-bottom: 1px solid var(--line);
-  background: linear-gradient(90deg, rgba(160,107,255,.14), rgba(53,208,224,.06) 55%, transparent);
+  background: linear-gradient(90deg, rgba(160,107,255,.14), rgba(53,208,224,.06) 55%, transparent), var(--bg);
   position: sticky; top: 0; z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
@@ -41,6 +41,11 @@ code, .mono, .log { font-family: "JetBrains Mono", ui-monospace, Menlo, monospac
 .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 1px; border: 1px solid var(--line); }
 .badge.demo { background: rgba(160,107,255,.15); color: #c6a8ff; border-color: #4c3583; }
 .badge.live { background: rgba(61,220,132,.14); color: #8ef0b8; border-color: #1f6b43; }
+.nav-link {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  padding: 6px 10px; border-radius: 999px; font-size: 11px; text-decoration: none;
+}
+.nav-link:hover { border-color: var(--purple); text-decoration: none; }
 
 .tabs { display: flex; gap: 6px; padding: 12px 24px 0; border-bottom: 1px solid var(--line); }
 .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 14px; cursor: pointer; font-size: 13px; }
