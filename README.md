@@ -257,11 +257,13 @@ Actions):
 | `BLUE_TEAM_URL` | Public URL of the blue team backend for Actions |
 | `BLUE_TEAM_TOKEN` | Shared secret for Actions bearer authentication |
 
-Actions deliveries use bearer authentication, while raw GitHub webhooks use
-HMAC authentication over the request body. In live mode, push events are
-re-validated against GitHub: the issue must exist, be open, and carry a
-qualifying label. Thus a forged event can at most trigger remediation of a
-real red-team issue that the polling watcher would have handled anyway.
+Push deliveries are authenticated with `BLUE_TEAM_TOKEN`: Actions sends it as
+a bearer token, a raw GitHub webhook uses it as the HMAC secret
+(`X-Hub-Signature-256`). In live mode the blue team additionally re-validates
+every pushed event against GitHub — the issue must exist, be open and carry a
+qualifying label — so a forged event can at most trigger remediation of a real
+red-team issue that the polling watcher would have picked up anyway.
+
 The polling watcher, Actions workflow and webhook all use the same per-issue
 idempotency key, so duplicate delivery (e.g. one `opened` plus three `labeled`
 events for a single issue) collapses onto one Devin session; the extra
@@ -342,22 +344,20 @@ and rendered in the viewer's local time zone.
 Every service logs single-line JSON to stdout (SIEM-friendly) and mirrors the
 same records into the `events` table, which is what the dashboard renders.
 
-“Median time to PR” is measured from session admission to session completion
-(PR opened).
+"Median time to PR" is measured from the moment a session is admitted to the
+moment it completes (i.e. the PR is opened); the merge wait is not included.
 
-## Verification
+---
 
-Demo-mode verification uses:
+## What has been verified
 
-```bash
-./scripts/demo.sh --all
-```
-
-The verified run injected 8 findings, created 8 sessions, merged 8 PRs, and
-remediated all 8 findings; guardrail queueing was observed with 2 concurrent
-sessions. Live verification observed issues #1, #4, #6, and #7, with PRs #2,
-#5, #8, and #9 merged; all three trigger paths were observed with dedupe.
-not verified: real ACU telemetry (consumption API not enabled on this account)
+| Check | Result |
+| --- | --- |
+| Demo mode, clean build (`./scripts/demo.sh --all`) | 8 findings injected → 8 sessions → 8 PRs opened and merged, 8/8 remediated; concurrency guardrail queued 6 of them and released them as slots freed |
+| Live mode on the fork | Issues [#1](https://github.com/jaeiku/superset/issues/1), [#4](https://github.com/jaeiku/superset/issues/4), [#6](https://github.com/jaeiku/superset/issues/6), [#7](https://github.com/jaeiku/superset/issues/7) → Devin PRs [#2](https://github.com/jaeiku/superset/pull/2), [#5](https://github.com/jaeiku/superset/pull/5), [#8](https://github.com/jaeiku/superset/pull/8), [#9](https://github.com/jaeiku/superset/pull/9), all merged after human review; median session → PR 2.2 min |
+| Trigger paths | Polling, Actions (`opened` + 3 × `labeled`) and the poller all fired for the same issue; exactly one Devin session was created, the rest logged `session_deduplicated` |
+| Push-path auth | Wrong HMAC → 401, correct HMAC → 200; bearer token exercised on the demo hand-off |
+| Not verified | Real ACU telemetry — the consumption API is not enabled on the account used, so ACU figures are labelled estimates |
 
 ---
 
