@@ -154,4 +154,4 @@ def index() -> HTMLResponse:
         'src="/static/app.js"',
         f'src="/static/app.js?v={ASSET_VERSION}"',
     )
-    return HTMLResponse(html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
