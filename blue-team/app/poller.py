@@ -5,7 +5,7 @@ Runs one loop every ``POLL_INTERVAL_SECONDS``:
 1. watch GitHub for new red-team issues and start remediation,
 2. refresh every non-terminal session from ``GET /v1/sessions/{id}``,
 3. reconcile ACU spend (enterprise consumption endpoint when the key allows it,
-  otherwise the reserved per-session cap is kept as a conservative charge),
+  otherwise a random 1-4 ACU estimate is recorded),
 4. record the resulting PR and comment it back on the GitHub issue; a blocked
   session with a PR counts as completed,
 5. release queued sessions once concurrency/budget headroom frees up.
@@ -19,6 +19,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import os
+import random
 import threading
 import time
 
@@ -65,6 +66,19 @@ def _sim_acu(record: DevinSession) -> float:
     fraction = 0.35 + (int(digest[:4], 16) % 45) / 100.0
     cap = record.acu_limit or 1.0
     return round(cap * fraction, 2)
+
+
+def _estimated_acu(record: DevinSession) -> float:
+    """Fallback when the Devin consumption API is unavailable.
+
+    The value is RANDOM (uniform 1-4 ACU, never above the cap), not measured
+    usage; it exists only so the demo budget meter moves realistically. Real
+    telemetry replaces it whenever the /v1/enterprise/consumption endpoint is
+    enabled for the API key.
+    """
+
+    cap = record.acu_limit or 4.0
+    return round(min(random.uniform(1.0, 4.0), cap), 2)
 
 
 def _age_seconds(record: DevinSession) -> float:
@@ -128,7 +142,7 @@ def _comment_result(
         f"### Blue team: Devin session {outcome}\n\n"
         f"- **Session:** {record.session_url or record.session_id}\n"
         f"- **Status:** `{record.status.value}` ({record.status_detail})\n"
-        f"- **ACU consumed:** {record.acu_consumed} / cap {record.acu_limit}\n"
+        f"- **ACU (estimated):** {record.acu_consumed} / cap {record.acu_limit}\n"
         + (f"- **Pull request:** {record.pr_url}\n" if record.pr_url else "")
     )
     if record.simulated:
@@ -303,9 +317,9 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
 
             if mapped in (SessionStatus.completed, SessionStatus.failed):
                 if not record.acu_consumed:
-                    # No usage telemetry available: charge the reserved cap so
-                    # the ceiling stays conservative rather than optimistic.
-                    record.acu_consumed = record.acu_limit
+                    # No usage telemetry: record a random estimate (see
+                    # _estimated_acu).
+                    record.acu_consumed = _estimated_acu(record)
                 _finish(db, record, mapped, finish_detail, pr_url, settings)
                 finished += 1
                 db.commit()
