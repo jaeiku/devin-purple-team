@@ -1,4 +1,4 @@
-"""Purple team dashboard: SOC-style observability over the shared store."""
+"""Blue team SOC dashboard: SOC-style observability over the shared store."""
 
 from __future__ import annotations
 
@@ -52,11 +52,11 @@ CATEGORY_LABELS = {
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
-    log_event(SERVICE, "service_started", "purple team dashboard online")
+    log_event(SERVICE, "service_started", "blue team SOC dashboard online")
     yield
 
 
-app = FastAPI(title="Purple Team - Dashboard", lifespan=lifespan)
+app = FastAPI(title="Purple Team - Blue Team SOC Dashboard", lifespan=lifespan)
 
 
 @app.get("/healthz")

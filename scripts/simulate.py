@@ -161,7 +161,7 @@ def watch(timeout: float) -> dict[str, Any]:
 
 
 def report(overview: dict[str, Any]) -> None:
-    step("PURPLE TEAM - dashboard state")
+    step("BLUE TEAM SOC - dashboard state")
     m = overview["metrics"]
     summary = overview["summary"]
     print(f"  verdict     : {BOLD}{summary['verdict'].upper()}{RESET} - {summary['headline']}")

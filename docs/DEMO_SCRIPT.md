@@ -9,7 +9,7 @@ Screens to have open before recording (in tab order):
 2. GitHub fork issues filtered to `label:red-team`
    (<https://github.com/jaeiku/superset/issues?q=label%3Ared-team>)
 3. A Devin session page (any previous remediation session)
-4. Purple SOC dashboard (`:8003`) — Operations tab
+4. Blue Team SOC dashboard (`:8003`) — Operations tab
 5. Same dashboard — Leadership tab
 6. Editor with `blue-team/app/guardrails.py`, `blue-team/app/poller.py`
 
@@ -104,10 +104,11 @@ one finding is already at `pr_open`/`merged` while another is `investigating`.
 
 *Tab 5 — Leadership tab.*
 
-> "If I were an engineering leader, how would I know this is working?" This
-> tab answers that in one sentence: a verdict — healthy, in progress,
-> attention, budget blocked — plus detection-to-PR coverage, median time to
-> PR, mean ACU per remediation, and budget consumed. Every service also emits
+> This is the **Blue Team SOC** — the defender's console. "If I were an
+> engineering leader, how would I know this is working?" This tab answers
+> that in one sentence: a verdict — healthy, in progress, attention, budget
+> blocked — plus detection-to-PR coverage, median time to PR, mean ACU per
+> remediation, and budget consumed. Every service also emits
 > single-line JSON events, so this plugs into an existing SIEM.
 
 ### 4:00 — Why Devin · ~35 s
@@ -125,7 +126,8 @@ one finding is already at `pr_open`/`merged` while another is `investigating`.
 
 > Today this covers one domain — vulnerabilities in a monitoring stack. In a
 > real engagement I'd extend it in three directions. Closing the loop into a
-> true purple team: fix outcomes feed back into the red team's scenarios and
+> true purple team — today red and blue share a target and telemetry, but
+> nothing flows back: fix outcomes should feed the red team's scenarios and
 > the detection rules, so every remediation makes the next attack harder to
 > land. Widening the surface: the same trigger-guardrail-remediate pattern
 > applies to network equipment security baselines, legacy customer-data
@@ -219,7 +221,7 @@ one finding is already at `pr_open`/`merged` while another is `investigating`.
 
 *탭 5 — Leadership 탭.*
 
-> "내가 엔지니어링 리더라면 이게 돌아가는지 어떻게 알까?" 이 탭이 한 문장으로
+> 이 화면이 **Blue Team SOC** — 방어자의 관제 콘솔입니다. "내가 엔지니어링 리더라면 이게 돌아가는지 어떻게 알까?" 이 탭이 한 문장으로
 > 답합니다. 판정 — healthy, in progress, attention, budget blocked — 와
 > 함께 탐지→PR 커버리지, PR까지 중간값 시간, 수정당 평균 ACU, 예산 소진율.
 > 모든 서비스가 한 줄 JSON 이벤트도 내보내기 때문에 기존 SIEM에 바로
@@ -238,7 +240,8 @@ one finding is already at `pr_open`/`merged` while another is `investigating`.
 ### 4:35 — When (다음 단계) · ~25초
 
 > 지금은 한 영역 — 모니터링 스택의 취약점 — 만 다룹니다. 실제 고객
-> 프로젝트라면 세 방향으로 확장하겠습니다. 진짜 퍼플팀으로 루프 닫기: 수정
+> 프로젝트라면 세 방향으로 확장하겠습니다. 진짜 퍼플팀으로 루프 닫기 — 지금은
+> 레드와 블루가 타겟과 텔레메트리를 공유하지만 되돌아가는 것이 없습니다. 수정
 > 결과가 레드팀 시나리오와 탐지 규칙에 피드백되어, 한 번 고칠 때마다 다음
 > 공격이 더 어려워지게. 적용 범위 확대: 같은 트리거-가드레일-수정 패턴을
 > 네트워크 장비 보안 기준선 점검, 레거시 고객 데이터 시스템, 기존 시스템과의

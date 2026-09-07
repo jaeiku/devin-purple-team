@@ -4,8 +4,10 @@
 monitoring stack.** A red team injects deterministic synthetic vulnerabilities
 into a fork of Apache Superset and files GitHub issues; the GitHub issue event
 triggers a blue team that opens a budget-capped Devin session, which
-investigates and opens a remediation pull request; a purple-team SOC dashboard
-makes the whole loop observable for engineers and engineering leaders.
+investigates and opens a remediation pull request; a Blue Team SOC dashboard
+makes the whole loop observable for engineers and engineering leaders. The
+project as a whole is a **purple-team exercise**: red and blue running against
+the same target so the defence can be measured.
 
 | | |
 | --- | --- |
@@ -40,12 +42,13 @@ practice:
   (MD5-hashed subscriber PII, CDR deserialization, OSS/BSS credentials, ...)
   and files a GitHub issue, exactly as a scanner or pentester would.
 - **Blue team** — automated defender. The GitHub issue is the trigger; it
-  spins up a Devin session under hard ACU/concurrency guardrails and tracks
-  it until the fix PR is merged.
-- **Purple team** — oversight layer. A SOC dashboard that shows both sides,
-  answers "is this working?" for leadership, and is where a future
-  red↔blue feedback loop (fix outcomes feeding back into detection scenarios)
-  would live — see *Next steps* in the demo script.
+  spins up a Devin session under hard ACU/concurrency guardrails, tracks it
+  until the fix PR is merged, and runs the **Blue Team SOC** dashboard that
+  answers "is this working?" for leadership.
+- **Purple team** — the exercise itself: red and blue against one target with
+  shared telemetry. The red↔blue feedback loop (fix outcomes feeding back into
+  detection scenarios) is the natural next step — see *Next steps* in the demo
+  script.
 
 ---
 
@@ -88,7 +91,7 @@ practice:
                                         └─────────────┬──────────────┘
                                                       ▼
                         ┌──────────────────────────────────────────┐
-                        │      PURPLE TEAM  (dashboard/ :8003)     │
+                        │    BLUE TEAM SOC  (dashboard/ :8003)     │
                         │  SOC feed · live tiles · ACU vs ceiling  │
                         │  leader "is this working?" summary       │
                         └──────────────────────────────────────────┘
@@ -107,7 +110,7 @@ red team posts the simulated event directly to the blue team.
 | --- | --- | --- | --- |
 | Red team | `red-team/` | 8001 | Vulnerability catalogue UI, numbered injection instances, issue creation |
 | Blue team | `blue-team/` | 8002 | Issue intake (GitHub poller / Actions / webhook), Devin sessions, guardrails, lifecycle polling, issue comments |
-| Purple team | `dashboard/` | 8003 | SOC dashboard, metrics, event feed, leadership summary |
+| Blue team SOC | `dashboard/` | 8003 | SOC dashboard, metrics, event feed, leadership summary |
 | Shared | `shared/pt_shared` | – | Models, datastore, config, structured logging, GitHub client |
 | Store | `postgres` | 5432 | Shared source of truth (SQLite also supported via `DATABASE_URL`) |
 
@@ -158,7 +161,7 @@ Or do both in one command:
 
 Open:
 
-- Purple team SOC dashboard — <http://localhost:8003>
+- Blue team SOC dashboard — <http://localhost:8003>
 - Red team console — <http://localhost:8001>
 - Blue team API — <http://localhost:8002/api/sessions>
 
@@ -175,7 +178,7 @@ Open:
   sessions active=2 queued=6 completed=0 failed=0 refused=0 PRs=0 ACU=0.0/100.0
   sessions active=2 queued=4 completed=2 failed=0 refused=0 PRs=2 ACU=12.1/100.0
   sessions active=0 queued=0 completed=8 failed=0 refused=0 PRs=8 ACU=44.0/100.0
-==> PURPLE TEAM - dashboard state
+==> BLUE TEAM SOC - dashboard state
   verdict     : HEALTHY - Autonomous remediation is working: 8 fix PR(s) opened,
                 8 merged (8/8 findings remediated).
 ```

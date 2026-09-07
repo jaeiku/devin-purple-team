@@ -1,1 +1,1 @@
-"""Purple team dashboard package."""
+"""Blue team SOC dashboard package."""
