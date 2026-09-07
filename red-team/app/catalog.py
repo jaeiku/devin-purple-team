@@ -51,17 +51,17 @@ class Vulnerability:
             "category": self.category,
             "cwe": self.cwe,
             "file_path": self.file_path,
+            "branch_pattern": f"red-team/{self.vuln_id}/run-<n>",
             "content": self.content,
             "remediation": self.remediation,
             "detection_hint": self.detection_hint,
             "tags": self.tags,
         }
 
-    @property
-    def branch(self) -> str:
-        """Deterministic branch name -- same vuln always targets same branch."""
+    def branch_for(self, instance: int) -> str:
+        """Return the branch name for a numbered injection instance."""
 
-        return f"red-team/{self.vuln_id}"
+        return f"red-team/{self.vuln_id}/run-{instance}"
 
 
 CATALOG: list[Vulnerability] = [
@@ -492,7 +492,9 @@ def get(vuln_id: str) -> Vulnerability:
     return CATALOG_BY_ID[vuln_id]
 
 
-def issue_body(vuln: Vulnerability, repo: str, commit_url: str = "") -> str:
+def issue_body(
+    vuln: Vulnerability, repo: str, commit_url: str, branch: str
+) -> str:
     """Render the GitHub issue body the blue team / Devin will act on."""
 
     lines = [
@@ -502,14 +504,14 @@ def issue_body(vuln: Vulnerability, repo: str, commit_url: str = "") -> str:
         f"`{vuln.category}` | **CWE:** `{vuln.cwe}`",
         f"**Repository:** `{repo}`",
         f"**Vulnerable file:** `{vuln.file_path}`",
-        f"**Injected on branch:** `{vuln.branch}`",
+        f"**Injected on branch:** `{branch}`",
         "",
         "### Description",
         vuln.description,
         "",
         "### Where it lives",
         f"The vulnerable code was added as a self-contained synthetic file at "
-        f"`{vuln.file_path}` on branch `{vuln.branch}`. No upstream Superset "
+        f"`{vuln.file_path}` on branch `{branch}`. No upstream Superset "
         f"code was modified.",
     ]
     if commit_url:

@@ -102,7 +102,8 @@ def inject(vuln_ids: list[str] | None, everything: bool) -> list[dict[str, Any]]
         marker = "new " if result.get("created") else "dupe"
         print(
             f"  {GREEN}{marker}{RESET} {injection['vuln_id']:<38} "
-            f"{injection['severity']:<8} issue #{injection['issue_number']} "
+            f"run #{injection['instance']} {injection['severity']:<8} "
+            f"issue #{injection['issue_number']} "
             f"{DIM}{injection['branch']}{RESET}"
         )
     return results

@@ -128,6 +128,8 @@ function renderSummary(summary) {
 async function refresh() {
   const [data, log] = await Promise.all([json("/api/overview"), json("/api/events?limit=80")]);
   $("target-repo").textContent = data.config.target_repo;
+  $("t-issues-link").href =
+    `https://github.com/${data.config.target_repo}/issues?q=label%3Ared-team`;
   const badge = $("mode-badge");
   badge.textContent = data.config.demo_mode ? "DEMO MODE" : "LIVE";
   badge.className = `badge ${data.config.demo_mode ? "demo" : "live"}`;

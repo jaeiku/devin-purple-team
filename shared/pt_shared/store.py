@@ -1,7 +1,7 @@
 """Query helpers over the shared datastore.
 
-These are the read/write primitives used by the red team (idempotent
-injections), the blue team (budget + concurrency guardrails) and the dashboard
+These are the read/write primitives used by the red team (injection
+instances), the blue team (budget + concurrency guardrails) and the dashboard
 (aggregate metrics).
 """
 
@@ -34,8 +34,23 @@ TERMINAL_SESSION_STATUSES = (SessionStatus.completed, SessionStatus.failed)
 # --- injections -----------------------------------------------------------
 
 
-def get_injection_by_vuln_id(db: Session, vuln_id: str) -> Injection | None:
-    return db.scalar(select(Injection).where(Injection.vuln_id == vuln_id))
+def list_injections_for_vuln(db: Session, vuln_id: str) -> list[Injection]:
+    return list(
+        db.scalars(
+            select(Injection)
+            .where(Injection.vuln_id == vuln_id)
+            .order_by(Injection.instance)
+        ).all()
+    )
+
+
+def next_instance(db: Session, vuln_id: str) -> int:
+    current = db.scalar(
+        select(func.max(Injection.instance)).where(
+            Injection.vuln_id == vuln_id
+        )
+    )
+    return int(current or 0) + 1
 
 
 def list_injections(db: Session) -> list[Injection]:

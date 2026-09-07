@@ -1,16 +1,16 @@
-"""Deterministic, idempotent vulnerability injection into the Superset fork.
+"""Deterministic vulnerability injection into the Superset fork.
 
 An injection is a two-step operation:
 
-1. commit the synthetic vulnerable file to a deterministic branch
-   (``red-team/<vuln_id>``) in the configured fork, and
+1. commit the synthetic vulnerable file to a numbered branch
+   (``red-team/<vuln_id>/run-<n>``) in the configured fork, and
 2. open a GitHub issue labelled ``security`` / ``red-team`` / ``severity:*``
    describing the vulnerability so the blue team can detect it.
 
-Both steps are idempotent: re-running an injection reuses the existing branch,
-skips the commit when the file content already matches, and reuses the
-existing issue instead of opening a duplicate. State is recorded in the shared
-store keyed by ``vuln_id``.
+Each call creates a new numbered instance. Within an instance, the GitHub
+issue lookup by exact instance-specific title prevents a duplicate issue if a
+request is retried after a partial failure. State is recorded in the shared
+store keyed by ``vuln_id`` and instance number.
 
 ``DEMO_MODE=true`` short-circuits the GitHub calls and records a simulated
 injection so the whole flow can be demonstrated with no credentials.
@@ -26,7 +26,7 @@ from pt_shared.config import Settings
 from pt_shared.github import GitHubClient, GitHubError
 from pt_shared.logging_utils import log_event
 from pt_shared.models import Injection, InjectionStatus, Severity
-from pt_shared.store import get_injection_by_vuln_id
+from pt_shared.store import next_instance
 from sqlalchemy.orm import Session
 
 from . import catalog
@@ -46,10 +46,12 @@ class InjectionError(RuntimeError):
     pass
 
 
-def _simulated_issue_number(vuln: Vulnerability) -> int:
+def _simulated_issue_number(vuln: Vulnerability, instance: int) -> int:
     """Stable pseudo issue number so demo runs are reproducible."""
 
-    digest = hashlib.sha256(vuln.vuln_id.encode()).hexdigest()
+    digest = hashlib.sha256(
+        f"{vuln.vuln_id}:{instance}".encode()
+    ).hexdigest()
     return 9000 + int(digest[:4], 16) % 900
 
 
@@ -62,51 +64,37 @@ def _labels(vuln: Vulnerability) -> list[str]:
     ]
 
 
-def _issue_title(vuln: Vulnerability) -> str:
-    return f"[red-team][{vuln.severity}] {vuln.title}"
+def _issue_title(vuln: Vulnerability, instance: int) -> str:
+    return f"[red-team][{vuln.severity}] {vuln.title} (run #{instance})"
 
 
-def _upsert_injection(
+def _new_injection(
     db: Session, vuln: Vulnerability, settings: Settings
 ) -> Injection:
-    record = get_injection_by_vuln_id(db, vuln.vuln_id)
-    if record is None:
-        record = Injection(
-            vuln_id=vuln.vuln_id,
-            title=vuln.title,
-            category=vuln.category,
-            severity=Severity(vuln.severity),
-            cwe=vuln.cwe,
-            repo=settings.superset_fork_repo,
-            branch=vuln.branch,
-            file_path=vuln.file_path,
-        )
-        db.add(record)
-        db.flush()
+    instance = next_instance(db, vuln.vuln_id)
+    record = Injection(
+        vuln_id=vuln.vuln_id,
+        instance=instance,
+        title=vuln.title,
+        category=vuln.category,
+        severity=Severity(vuln.severity),
+        cwe=vuln.cwe,
+        repo=settings.superset_fork_repo,
+        branch=vuln.branch_for(instance),
+        file_path=vuln.file_path,
+    )
+    db.add(record)
+    db.flush()
     return record
 
 
 def inject(
     db: Session, vuln_id: str, settings: Settings, notify_blue_team: bool = True
 ) -> dict[str, Any]:
-    """Inject one catalog vulnerability. Safe to call repeatedly."""
+    """Inject one new numbered instance of a catalog vulnerability."""
 
     vuln = catalog.get(vuln_id)
-    record = _upsert_injection(db, vuln, settings)
-
-    already_done = record.status in (
-        InjectionStatus.issue_opened,
-        InjectionStatus.remediated,
-    )
-    if already_done and record.issue_number:
-        log_event(
-            SERVICE,
-            "injection_skipped",
-            f"{vuln.vuln_id} already injected (issue #{record.issue_number})",
-            data={"vuln_id": vuln.vuln_id, "issue_number": record.issue_number},
-            db=db,
-        )
-        return {"injection": record.as_dict(), "created": False, "reason": "exists"}
+    record = _new_injection(db, vuln, settings)
 
     if settings.demo_mode or not settings.github_token:
         result = _inject_simulated(db, vuln, record, settings)
@@ -126,10 +114,10 @@ def _inject_simulated(
     db: Session, vuln: Vulnerability, record: Injection, settings: Settings
 ) -> dict[str, Any]:
     repo = settings.superset_fork_repo
-    number = _simulated_issue_number(vuln)
+    number = _simulated_issue_number(vuln, record.instance)
     record.simulated = True
     record.commit_sha = hashlib.sha1(
-        (vuln.vuln_id + vuln.content).encode()
+        f"{vuln.vuln_id}:{record.instance}:{vuln.content}".encode()
     ).hexdigest()
     record.commit_url = (
         f"https://github.com/{repo}/commit/{record.commit_sha}"
@@ -142,18 +130,24 @@ def _inject_simulated(
     log_event(
         SERVICE,
         "injection_simulated",
-        f"[DEMO] injected {vuln.vuln_id} into {repo} and opened issue #{number}",
+        f"[DEMO] injected {vuln.vuln_id} run #{record.instance} into "
+        f"{repo} and opened issue #{number}",
         data={
             "vuln_id": vuln.vuln_id,
             "category": vuln.category,
             "severity": vuln.severity,
-            "branch": vuln.branch,
+            "branch": record.branch,
             "file_path": vuln.file_path,
             "issue_number": number,
         },
         db=db,
     )
-    return {"injection": record.as_dict(), "created": True, "simulated": True}
+    return {
+        "injection": record.as_dict(),
+        "instance": record.instance,
+        "created": True,
+        "simulated": True,
+    }
 
 
 def _inject_live(
@@ -162,11 +156,11 @@ def _inject_live(
     repo = settings.superset_fork_repo
     try:
         with GitHubClient(settings) as gh:
-            gh.ensure_branch(vuln.branch)
+            gh.ensure_branch(record.branch)
             commit = gh.put_file(
                 path=vuln.file_path,
                 content=vuln.content,
-                branch=vuln.branch,
+                branch=record.branch,
                 message=(
                     f"red-team: inject synthetic {vuln.category} "
                     f"vulnerability ({vuln.vuln_id})"
@@ -183,13 +177,16 @@ def _inject_live(
                     color = "5319e7"
                 gh.ensure_label(label, color, vuln.category)
 
-            title = _issue_title(vuln)
+            title = _issue_title(vuln, record.instance)
             issue = gh.find_issue_by_title(title)
             if issue is None:
                 issue = gh.create_issue(
                     title=title,
-                    body=catalog.issue_body(vuln, repo, record.commit_url),
+                    body=catalog.issue_body(
+                        vuln, repo, record.commit_url, record.branch
+                    ),
                     labels=_labels(vuln),
+                    assignees=[settings.effective_issue_assignee],
                 )
                 created_issue = True
             else:
@@ -216,13 +213,14 @@ def _inject_live(
     log_event(
         SERVICE,
         "injection_committed",
-        f"injected {vuln.vuln_id} into {repo}@{vuln.branch}, "
+        f"injected {vuln.vuln_id} run #{record.instance} into "
+        f"{repo}@{record.branch}, "
         f"issue #{record.issue_number}",
         data={
             "vuln_id": vuln.vuln_id,
             "category": vuln.category,
             "severity": vuln.severity,
-            "branch": vuln.branch,
+            "branch": record.branch,
             "file_path": vuln.file_path,
             "issue_number": record.issue_number,
             "issue_created": created_issue,
@@ -231,6 +229,7 @@ def _inject_live(
     )
     return {
         "injection": record.as_dict(),
+        "instance": record.instance,
         "created": True,
         "issue_created": created_issue,
         "simulated": False,

@@ -53,13 +53,18 @@ class SessionStatus(str, enum.Enum):
 
 
 class Injection(Base):
-    """One deterministic vulnerability injected into the Superset fork."""
+    """One numbered vulnerability instance injected into the Superset fork."""
 
     __tablename__ = "injections"
-    __table_args__ = (UniqueConstraint("vuln_id", name="uq_injection_vuln_id"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "vuln_id", "instance", name="uq_injection_vuln_instance"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     vuln_id: Mapped[str] = mapped_column(String(128), index=True)
+    instance: Mapped[int] = mapped_column(Integer, default=1)
     title: Mapped[str] = mapped_column(String(256))
     category: Mapped[str] = mapped_column(String(64), index=True)
     severity: Mapped[Severity] = mapped_column(Enum(Severity), index=True)
@@ -90,6 +95,7 @@ class Injection(Base):
         return {
             "id": self.id,
             "vuln_id": self.vuln_id,
+            "instance": self.instance,
             "title": self.title,
             "category": self.category,
             "severity": self.severity.value,

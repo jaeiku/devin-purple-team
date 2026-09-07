@@ -26,7 +26,7 @@ recording a walkthrough.
                                         ▼
                         ┌──────────────────────────────────────────┐
                         │      GitHub: jaeiku/superset (fork)      │
-                        │  branch red-team/<vuln-id> + issue       │
+                        │  branch red-team/<vuln-id>/run-<n> + issue │
                         └───────────────┬──────────────────────────┘
                      3. issues: opened  │  (.github/workflows/
                         GitHub Actions  │   devin-remediation.yml)
@@ -60,7 +60,7 @@ recording a walkthrough.
 
 | Service | Path | Port | Responsibility |
 | --- | --- | --- | --- |
-| Red team | `red-team/` | 8001 | Vulnerability catalogue UI, deterministic + idempotent injection, issue creation |
+| Red team | `red-team/` | 8001 | Vulnerability catalogue UI, numbered injection instances, issue creation |
 | Blue team | `blue-team/` | 8002 | Issue intake (Actions workflow / webhook), Devin sessions, guardrails, lifecycle polling, issue comments |
 | Purple team | `dashboard/` | 8003 | SOC dashboard, metrics, event feed, leadership summary |
 | Shared | `shared/pt_shared` | – | Models, datastore, config, structured logging, GitHub client |
@@ -81,6 +81,9 @@ recording a walkthrough.
   that fork. For a fine-grained PAT: *Repository access -> Only select
   repositories -> the fork*, then *Contents: Read and write* and
   *Issues: Read and write*.
+- The database schema includes numbered injection instances. If an existing
+  Postgres volume is present after a schema change, reset it with
+  `docker compose down -v`.
 
 ---
 
@@ -130,12 +133,13 @@ Open:
 ```
 
 In demo mode the GitHub commit/issue, the Devin session and the resulting PR
-are simulated deterministically (stable issue numbers, stable pseudo-SHAs) and
-recorded in the shared store, so every state transition, guardrail decision and
-dashboard tile behaves exactly as it does in live mode.
+are simulated deterministically (stable pseudo-SHAs and per-instance issue
+numbers) and recorded in the shared store, so every state transition,
+guardrail decision and dashboard tile behaves exactly as it does in live mode.
 
-Re-running the simulation is safe: injections and sessions are idempotent, so
-findings show as `dupe` instead of duplicating issues or Devin sessions.
+Every Inject click creates a new numbered instance, branch and issue. The blue
+team remains idempotent per issue number, so retries for one issue do not create
+duplicate Devin sessions.
 
 ---
 
@@ -147,6 +151,7 @@ findings show as `dupe` instead of duplicating issues or Devin sessions.
    DEMO_MODE=false
    DEVIN_API_KEY=...
    GITHUB_TOKEN=...            # repo scope on the fork only
+   GITHUB_ISSUE_ASSIGNEE=...   # GitHub login assigned to red-team issues
    SUPERSET_FORK_REPO=jaeiku/superset
    MAX_ACU_PER_SESSION=10
    MAX_CONCURRENT_SESSIONS=2
@@ -154,8 +159,9 @@ findings show as `dupe` instead of duplicating issues or Devin sessions.
    ```
 
 2. `docker compose up --build`.
-3. Pick a vulnerability in the red team console. It commits the synthetic file
-   to `red-team/<vuln-id>` in the fork and opens a labelled issue.
+3. Pick a vulnerability in the red team console. Each Inject click commits the
+   synthetic file to a new `red-team/<vuln_id>/run-<n>` branch in the fork and
+   opens a labelled issue titled with `(run #n)`.
 4. The blue team creates a Devin session with `max_acu_limit` set from
    `MAX_ACU_PER_SESSION`, comments the session link on the issue, polls the
    session, and comments again with the PR when Devin finishes.
@@ -196,10 +202,11 @@ duplicate sessions.
 
 ## Vulnerability catalogue
 
-Each entry is a **self-contained synthetic file** added to the fork (never an
-edit to real Superset internals), with a deterministic branch, issue title and
-remediation guidance. Telco-flavoured, mirroring an operator's Superset
-deployment.
+Each entry is a **vulnerability type**, represented by a self-contained
+synthetic file added to the fork (never an edit to real Superset internals).
+Every injection creates a new numbered instance with a
+`red-team/<vuln_id>/run-<n>` branch and an issue titled
+`... (run #n)`. Telco-flavoured, mirroring an operator's Superset deployment.
 
 | ID | Category | Severity | Injected file |
 | --- | --- | --- | --- |
@@ -223,6 +230,9 @@ using the shared store as the source of truth:
   `<repo>#issue-<number>`, backed by a unique constraint and by the Devin API's
   own `idempotent` flag, so workflow re-runs and duplicate webhooks collapse
   onto the same session.
+- **Injection instances** — repeated Inject clicks intentionally create new
+  branches and issues; blue-team idempotency remains scoped to each issue
+  number.
 - **Per-session cap** — `MAX_ACU_PER_SESSION` is passed as `max_acu_limit` on
   `POST /v1/sessions`.
 - **Concurrency** — at most `MAX_CONCURRENT_SESSIONS` sessions run at once.
@@ -304,3 +314,6 @@ python3 scripts/simulate.py
 docker compose down       # stop
 docker compose down -v    # stop and wipe the datastore
 ```
+
+After a schema change, an existing Postgres volume must be reset with
+`docker compose down -v` before restarting the stack.
