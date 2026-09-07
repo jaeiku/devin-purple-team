@@ -28,8 +28,8 @@ recording a walkthrough.
                         │      GitHub: jaeiku/superset (fork)      │
                         │  branch red-team/<vuln-id>/run-<n> + issue │
                         └───────────────┬──────────────────────────┘
-                     3. issues: opened  │  (.github/workflows/
-                        GitHub Actions  │   devin-remediation.yml)
+                     3. issue trigger:  │  pull watcher (default),
+                        poll / Actions  │  Actions workflow or webhook
                                         ▼
                         ┌──────────────────────────────────────────┐
                         │      BLUE TEAM  (blue-team/ :8002)       │
@@ -58,10 +58,19 @@ recording a walkthrough.
                         └──────────────────────────────────────────┘
 ```
 
+In live mode, the GitHub issue is the trigger for blue-team remediation.
+By default, the blue team polls `GET /issues?labels=red-team&state=open`
+every `POLL_INTERVAL_SECONDS` (15 seconds by default), so no inbound network
+connection is required. GitHub Actions
+(`devin-remediation.yml` with `BLUE_TEAM_URL`) and the raw webhook endpoint
+(`/api/webhooks/github`) are push-based alternatives. All three paths collapse
+on the per-issue idempotency key. In demo mode, no GitHub issue exists, so the
+red team posts the simulated event directly to the blue team.
+
 | Service | Path | Port | Responsibility |
 | --- | --- | --- | --- |
 | Red team | `red-team/` | 8001 | Vulnerability catalogue UI, numbered injection instances, issue creation |
-| Blue team | `blue-team/` | 8002 | Issue intake (Actions workflow / webhook), Devin sessions, guardrails, lifecycle polling, issue comments |
+| Blue team | `blue-team/` | 8002 | Issue intake (GitHub poller / Actions / webhook), Devin sessions, guardrails, lifecycle polling, issue comments |
 | Purple team | `dashboard/` | 8003 | SOC dashboard, metrics, event feed, leadership summary |
 | Shared | `shared/pt_shared` | – | Models, datastore, config, structured logging, GitHub client |
 | Store | `postgres` | 5432 | Shared source of truth (SQLite also supported via `DATABASE_URL`) |
@@ -169,34 +178,30 @@ duplicate Devin sessions.
 
 Every secret is read from the environment; nothing is hardcoded.
 
-### GitHub Actions trigger in the fork
+### GitHub issue triggers
 
 Copy `blue-team/github-actions/devin-remediation.yml` into the fork as
-`.github/workflows/devin-remediation.yml`. It fires on `issues: opened` /
-`labeled`, filters to the `red-team` / `security` labels, and then:
+`.github/workflows/devin-remediation.yml` for the Actions path. It fires on
+`issues: opened` / `labeled`, filters to the `red-team` / `security` labels,
+and POSTs the issue to the blue-team backend:
 
-- **Preferred:** POSTs the issue to the blue team backend
-  (`BLUE_TEAM_URL`), so guardrails, budget accounting and the dashboard stay
-  authoritative. The backend must be reachable from GitHub (public host or a
-  tunnel such as `ngrok`/Cloudflare Tunnel).
-- **Fallback:** if `BLUE_TEAM_URL` is not set, the workflow calls
-  `POST /v1/sessions` directly with `DEVIN_API_KEY` and comments the session
-  link on the issue. Simpler to demo, but only the backend path records state
-  in the shared store.
+`BLUE_TEAM_URL` must be reachable from GitHub (public host or a tunnel such as
+`ngrok`/Cloudflare Tunnel). The raw webhook alternative sends the GitHub
+`issues` payload to `/api/webhooks/github`.
 
 Repository secrets to add in the fork (Settings → Secrets and variables →
 Actions):
 
 | Secret | Purpose |
 | --- | --- |
-| `BLUE_TEAM_URL` | Public URL of the blue team backend (preferred path) |
-| `DEVIN_API_KEY` | Devin API key (direct-invocation fallback) |
-| `MAX_ACU_PER_SESSION` | Optional per-session ACU cap for the fallback path |
+| `BLUE_TEAM_URL` | Public URL of the blue team backend for Actions |
+| `DEVIN_API_KEY` | Devin API key used by the blue team backend |
+| `MAX_ACU_PER_SESSION` | Optional per-session ACU cap |
 
-For a local demo without a public URL, the red team also hands issues straight
-to the blue team over the internal network — the blue team is idempotent per
-issue number, so both trigger paths can run simultaneously without creating
-duplicate sessions.
+The polling watcher, Actions workflow and webhook all use the same per-issue
+idempotency key, so duplicate delivery does not create duplicate sessions.
+For a local demo without a public URL, demo mode uses the red team's direct
+simulated event instead of GitHub.
 
 ---
 
@@ -280,7 +285,7 @@ Blue team (`:8002`)
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/api/events/issue-opened` | Issue intake used by the Actions workflow |
+| POST | `/api/events/issue-opened` | Issue intake used by Actions or demo mode |
 | POST | `/api/webhooks/github` | Raw GitHub `issues` webhook intake |
 | GET | `/api/guardrails` | Current guardrail decision and budget state |
 | GET | `/api/sessions` | Devin session records |

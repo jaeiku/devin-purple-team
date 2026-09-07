@@ -2,12 +2,13 @@
 
 Runs one loop every ``POLL_INTERVAL_SECONDS``:
 
-* refresh every non-terminal session from ``GET /v1/sessions/{id}``,
-* reconcile ACU spend (enterprise consumption endpoint when the key allows it,
+1. watch GitHub for new red-team issues and start remediation,
+2. refresh every non-terminal session from ``GET /v1/sessions/{id}``,
+3. reconcile ACU spend (enterprise consumption endpoint when the key allows it,
   otherwise the reserved per-session cap is kept as a conservative charge),
-* record the resulting PR and comment it back on the GitHub issue; a blocked
+4. record the resulting PR and comment it back on the GitHub issue; a blocked
   session with a PR counts as completed,
-* release queued sessions once concurrency/budget headroom frees up.
+5. release queued sessions once concurrency/budget headroom frees up.
 
 In demo mode the same loop drives a deterministic simulated lifecycle so the
 dashboard animates end-to-end without touching the real API.
@@ -29,10 +30,12 @@ from pt_shared.models import DevinSession, InjectionStatus, SessionStatus
 from pt_shared.store import (
     ACTIVE_SESSION_STATUSES,
     get_injection_by_issue,
+    get_session_by_key,
     list_sessions,
 )
 from sqlalchemy.orm import Session
 
+from . import guardrails, remediation
 from .devin_client import DevinAPIError, DevinClient
 from .schemas import IssueEvent
 
@@ -145,6 +148,70 @@ def _comment_result(
         )
 
 
+def watch_github_issues(db: Session, settings: Settings) -> int:
+    """Start remediation for open red-team issues not seen before."""
+
+    if settings.demo_mode or not settings.github_token:
+        return 0
+
+    try:
+        with GitHubClient(settings) as gh:
+            issues = gh.list_open_issues("red-team")
+    except GitHubError as exc:
+        log_event(
+            SERVICE,
+            "github_watch_failed",
+            f"could not poll open red-team issues: {exc}",
+            level="warning",
+            db=db,
+        )
+        return 0
+
+    detected = 0
+    for issue in issues:
+        issue_number = int(issue["number"])
+        key = guardrails.idempotency_key(
+            settings.superset_fork_repo, issue_number
+        )
+        if get_session_by_key(db, key) is not None:
+            continue
+
+        labels = [
+            str(label.get("name", ""))
+            for label in issue.get("labels", [])
+            if isinstance(label, dict)
+        ]
+        event_data = {
+            "issue_number": issue_number,
+            "issue_url": str(issue.get("html_url", "")),
+            "title": str(issue.get("title", "")),
+            "body": str(issue.get("body") or ""),
+            "labels": labels,
+            "repo": settings.superset_fork_repo,
+        }
+        injection = get_injection_by_issue(db, issue_number)
+        if injection is not None:
+            event_data.update(
+                category=injection.category,
+                severity=injection.severity.value,
+                file_path=injection.file_path,
+                branch=injection.branch,
+                vuln_id=injection.vuln_id,
+            )
+        event = IssueEvent(**event_data)
+        log_event(
+            SERVICE,
+            "github_issue_detected",
+            f"detected red-team issue #{issue_number} on GitHub, "
+            "starting remediation",
+            data=event.model_dump(),
+            db=db,
+        )
+        remediation.handle_issue(db, event, settings)
+        detected += 1
+    return detected
+
+
 def poll_once(settings: Settings | None = None) -> dict[str, int]:
     """One reconciliation pass. Returns a small summary for tests/CLI use."""
 
@@ -154,6 +221,7 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
     released = 0
 
     with session_scope() as db:
+        watch_github_issues(db, settings)
         sessions = [
             s for s in list_sessions(db) if s.status in ACTIVE_SESSION_STATUSES
         ]
@@ -265,8 +333,6 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
 
 def _release_queued(db: Session, settings: Settings) -> int:
     """Retry sessions that were queued behind the concurrency limit."""
-
-    from . import guardrails, remediation
 
     queued = [s for s in list_sessions(db) if s.status == SessionStatus.queued]
     released = 0
