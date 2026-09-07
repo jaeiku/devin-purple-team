@@ -17,6 +17,7 @@ from .models import (
     Event,
     Injection,
     InjectionStatus,
+    PRState,
     SessionStatus,
 )
 
@@ -167,6 +168,15 @@ def metrics(db: Session, budget_ceiling: float) -> dict[str, Any]:
     failed = [s for s in sessions if s.status == SessionStatus.failed]
     refused = [s for s in sessions if s.status == SessionStatus.refused_budget]
     prs = [s.pr_url for s in sessions if s.pr_url]
+    prs_merged = sum(1 for s in sessions if s.pr_state == PRState.merged)
+    prs_awaiting_review = sum(
+        1 for s in sessions if s.pr_state == PRState.open
+    )
+    prs_closed = sum(1 for s in sessions if s.pr_state == PRState.closed)
+    stages: dict[str, int] = {}
+    for session in sessions:
+        stage = session.stage.value
+        stages[stage] = stages.get(stage, 0) + 1
 
     spend = total_acu_spend(db)
     finished = len(completed) + len(failed)
@@ -188,7 +198,11 @@ def metrics(db: Session, budget_ceiling: float) -> dict[str, Any]:
         "sessions_refused_budget": len(refused),
         "success_rate_pct": round(success_rate, 1),
         "prs_opened": len(prs),
+        "prs_merged": prs_merged,
+        "prs_awaiting_review": prs_awaiting_review,
+        "prs_closed": prs_closed,
         "pr_urls": prs,
+        "stages": stages,
         "acu_spend": round(spend, 2),
         "acu_committed": round(committed_acu(db), 2),
         "acu_ceiling": budget_ceiling,

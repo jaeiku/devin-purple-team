@@ -32,6 +32,7 @@ import json as jsonlib
 RED = os.getenv("RED_TEAM_URL", "http://localhost:8001").rstrip("/")
 BLUE = os.getenv("BLUE_TEAM_URL", "http://localhost:8002").rstrip("/")
 DASH = os.getenv("DASHBOARD_URL", "http://localhost:8003").rstrip("/")
+SIM_INTERVAL = float(os.getenv("SIMULATED_SESSION_SECONDS", "20"))
 
 DEFAULT_SELECTION = [
     "tel-001-md5-subscriber-pii",
@@ -134,7 +135,8 @@ def watch(timeout: float) -> dict[str, Any]:
             f"queued={m['sessions_queued']} "
             f"completed={m['sessions_completed']} failed={m['sessions_failed']} "
             f"refused={m['sessions_refused_budget']} "
-            f"PRs={m['prs_opened']} ACU={m['acu_spend']}/{m['acu_ceiling']}"
+            f"PRs={m['prs_opened']} merged={m['prs_merged']} "
+            f"ACU={m['acu_spend']}/{m['acu_ceiling']}"
         )
         if line != last:
             print(line)
@@ -144,6 +146,15 @@ def watch(timeout: float) -> dict[str, Any]:
             and m["sessions_queued"] == 0
             and m["sessions_total"] > 0
         ):
+            break
+        time.sleep(4)
+
+    merge_deadline = min(deadline, time.time() + 3 * SIM_INTERVAL)
+    while time.time() < merge_deadline:
+        call(f"{BLUE}/api/poll", {})
+        overview = call(f"{DASH}/api/overview")
+        stages = [session.get("stage") for session in overview["sessions"]]
+        if stages and all(stage == "merged" for stage in stages):
             break
         time.sleep(4)
     return overview
@@ -156,7 +167,7 @@ def report(overview: dict[str, Any]) -> None:
     print(f"  verdict     : {BOLD}{summary['verdict'].upper()}{RESET} - {summary['headline']}")
     print(f"  issues      : {m['issues_created']} raised, {m['remediated']} remediated")
     print(f"  sessions    : {m['sessions_total']} total, {m['success_rate_pct']}% success")
-    print(f"  pull reqs   : {m['prs_opened']}")
+    print(f"  pull reqs   : {m['prs_opened']} ({m['prs_merged']} merged)")
     print(f"  ACU spend   : {m['acu_spend']} / {m['acu_ceiling']} ({m['budget_used_pct']}%)")
     print(f"  by category : {m['injections_by_category']}")
     for pr in m["pr_urls"]:
@@ -209,6 +220,15 @@ def main() -> int:
         problems.append(
             f"only {m['remediated']}/{m['issues_created']} finding(s) remediated"
         )
+    if m["prs_merged"] < m["issues_created"]:
+        problems.append(
+            f"only {m['prs_merged']}/{m['issues_created']} pull request(s) merged"
+        )
+    unmerged = [
+        session for session in overview["sessions"] if session.get("stage") != "merged"
+    ]
+    if unmerged:
+        problems.append(f"{len(unmerged)} session(s) not at merged stage")
     if problems:
         print(f"\n  {RED_C}FAILED{RESET}: {'; '.join(problems)}")
         return 1

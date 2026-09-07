@@ -24,9 +24,9 @@ import time
 
 from pt_shared.config import Settings, get_settings
 from pt_shared.db import session_scope
-from pt_shared.github import GitHubClient, GitHubError
+from pt_shared.github import GitHubClient, GitHubError, parse_pr_number
 from pt_shared.logging_utils import log_event
-from pt_shared.models import DevinSession, InjectionStatus, SessionStatus
+from pt_shared.models import DevinSession, InjectionStatus, PRState, SessionStatus
 from pt_shared.store import (
     ACTIVE_SESSION_STATUSES,
     get_injection_by_issue,
@@ -88,11 +88,17 @@ def _finish(
     record.status_detail = detail[:200]
     if pr_url:
         record.pr_url = pr_url
+        record.pr_number = parse_pr_number(pr_url)
+        record.pr_state = PRState.open
     db.flush()
 
     injection = get_injection_by_issue(db, record.issue_number)
-    if injection is not None and status == SessionStatus.completed:
-        injection.status = InjectionStatus.remediated
+    if (
+        injection is not None
+        and status == SessionStatus.completed
+        and pr_url
+    ):
+        injection.status = InjectionStatus.pr_open
         db.flush()
 
     log_event(
@@ -219,6 +225,7 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
     updated = 0
     finished = 0
     released = 0
+    pr_updates = 0
 
     with session_scope() as db:
         watch_github_issues(db, settings)
@@ -249,6 +256,7 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
                     f"https://github.com/{settings.superset_fork_repo}/pull/"
                     f"{record.issue_number + 1}"
                 )
+                record.pr_number = record.issue_number + 1
                 _finish(
                     db,
                     record,
@@ -309,6 +317,8 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
                 record.status_detail = raw_status
                 if pr_url:
                     record.pr_url = pr_url
+                    record.pr_number = parse_pr_number(pr_url)
+                    record.pr_state = PRState.open
                 db.flush()
                 if changed:
                     updated += 1
@@ -326,9 +336,104 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
                         db=db,
                     )
 
+        pr_updates = watch_pull_requests(db, settings)
         released = _release_queued(db, settings)
 
-    return {"updated": updated, "finished": finished, "released": released}
+    return {
+        "updated": updated,
+        "finished": finished,
+        "released": released,
+        "pr_updates": pr_updates,
+    }
+
+
+def watch_pull_requests(db: Session, settings: Settings) -> int:
+    """Reconcile open pull requests and update their remediation stages."""
+
+    records = [
+        record
+        for record in list_sessions(db)
+        if record.pr_state == PRState.open and record.pr_number
+    ]
+    changed = 0
+    live_records = [
+        record for record in records if not record.simulated and settings.github_token
+    ]
+
+    def mark_merged(record: DevinSession) -> None:
+        nonlocal changed
+        record.pr_state = PRState.merged
+        injection = get_injection_by_issue(db, record.issue_number)
+        if injection is not None:
+            injection.status = InjectionStatus.remediated
+        log_event(
+            SERVICE,
+            "pr_merged",
+            f"PR #{record.pr_number} merged for issue #{record.issue_number} "
+            "— finding remediated",
+            data={
+                "pr_number": record.pr_number,
+                "issue_number": record.issue_number,
+            },
+            db=db,
+        )
+        changed += 1
+
+    def mark_closed(record: DevinSession) -> None:
+        nonlocal changed
+        record.pr_state = PRState.closed
+        log_event(
+            SERVICE,
+            "pr_closed",
+            f"PR #{record.pr_number} closed without merging for issue "
+            f"#{record.issue_number}",
+            level="warning",
+            data={
+                "pr_number": record.pr_number,
+                "issue_number": record.issue_number,
+            },
+            db=db,
+        )
+        changed += 1
+
+    for record in records:
+        if record.simulated:
+            if _age_seconds(record) >= 2 * SIM_DURATION:
+                mark_merged(record)
+
+    if live_records:
+        try:
+            with GitHubClient(settings) as gh:
+                for record in live_records:
+                    try:
+                        pull = gh.get_pull(record.pr_number)
+                    except GitHubError as exc:
+                        log_event(
+                            SERVICE,
+                            "pr_poll_failed",
+                            f"could not poll PR #{record.pr_number}: {exc}",
+                            level="warning",
+                            data={
+                                "pr_number": record.pr_number,
+                                "issue_number": record.issue_number,
+                            },
+                            db=db,
+                        )
+                        continue
+                    if pull.get("merged_at"):
+                        mark_merged(record)
+                    elif pull.get("state") == "closed":
+                        mark_closed(record)
+        except GitHubError as exc:
+            log_event(
+                SERVICE,
+                "pr_poll_failed",
+                f"could not initialize GitHub PR polling: {exc}",
+                level="warning",
+                db=db,
+            )
+
+    return changed
 
 
 def _release_queued(db: Session, settings: Settings) -> int:

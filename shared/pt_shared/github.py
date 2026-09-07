@@ -8,6 +8,7 @@ fork; the client refuses to touch any other repository.
 from __future__ import annotations
 
 import base64
+import re
 from typing import Any
 
 import httpx
@@ -21,6 +22,11 @@ class GitHubError(RuntimeError):
 
 class RepoNotAllowedError(GitHubError):
     """Raised when a caller tries to act on a repo other than the fork."""
+
+
+def parse_pr_number(url: str) -> int | None:
+    match = re.search(r"/pull/(\d+)", url)
+    return int(match.group(1)) if match else None
 
 
 class GitHubClient:
@@ -229,6 +235,11 @@ class GitHubClient:
     def get_issue(self, number: int) -> dict[str, Any]:
         return dict(
             self._request("GET", f"/repos/{self._repo}/issues/{number}").json()
+        )
+
+    def get_pull(self, number: int) -> dict[str, Any]:
+        return dict(
+            self._request("GET", f"/repos/{self._repo}/pulls/{number}").json()
         )
 
     def comment_issue(self, number: int, body: str) -> dict[str, Any]:

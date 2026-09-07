@@ -90,9 +90,9 @@ red team posts the simulated event directly to the blue team.
   that fork. For a fine-grained PAT: *Repository access -> Only select
   repositories -> the fork*, then *Contents: Read and write* and
   *Issues: Read and write*.
-- The database schema includes numbered injection instances. If an existing
-  Postgres volume is present after a schema change, reset it with
-  `docker compose down -v`.
+- The database schema includes numbered injection instances and PR state
+  tracking. If an existing Postgres volume is present after a schema change,
+  reset it with `docker compose down -v`.
 
 ---
 
@@ -264,6 +264,10 @@ The dashboard has two views:
 - **Leadership** — a plain-language "is this working?" verdict with
   detection→PR coverage, median time to PR, mean ACU per remediation and budget
   consumed.
+
+The dashboard's remediation stage lifecycle is `queued → investigating →
+pr_open → merged`; `failed`, `refused` and `pr_closed` are terminal
+alternatives. A finding is **remediated** only after its fix PR is merged.
 
 Every service logs single-line JSON to stdout (SIEM-friendly) and mirrors the
 same records into the `events` table, which is what the dashboard renders.
