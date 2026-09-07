@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pt_shared.config import Settings, get_settings
 from pt_shared.db import get_db, init_db
-from pt_shared.logging_utils import log_event
+from pt_shared.logging_utils import get_logger
 from pt_shared.store import (
     list_injections,
     list_sessions,
@@ -52,7 +52,7 @@ CATEGORY_LABELS = {
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
-    log_event(SERVICE, "service_started", "blue team SOC dashboard online")
+    get_logger(SERVICE).info("blue team SOC dashboard online")
     yield
 
 
