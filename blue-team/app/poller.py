@@ -35,6 +35,7 @@ from pt_shared.store import (
 )
 from sqlalchemy.orm import Session
 
+from . import guardrails, remediation
 from .devin_client import DevinAPIError, DevinClient
 from .schemas import IssueEvent
 
@@ -165,8 +166,6 @@ def watch_github_issues(db: Session, settings: Settings) -> int:
             db=db,
         )
         return 0
-
-    from . import guardrails, remediation
 
     detected = 0
     for issue in issues:
@@ -334,8 +333,6 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
 
 def _release_queued(db: Session, settings: Settings) -> int:
     """Retry sessions that were queued behind the concurrency limit."""
-
-    from . import guardrails, remediation
 
     queued = [s for s in list_sessions(db) if s.status == SessionStatus.queued]
     released = 0
