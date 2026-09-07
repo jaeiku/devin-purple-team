@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import hashlib
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pt_shared.config import Settings, get_settings
 from pt_shared.db import get_db, init_db
@@ -21,6 +22,16 @@ from .injector import InjectionError, inject
 
 SERVICE = "red-team"
 STATIC_DIR = Path(__file__).parent / "static"
+
+
+def _asset_version() -> str:
+    digest = hashlib.sha1()
+    for filename in ("app.js", "style.css"):
+        digest.update((STATIC_DIR / filename).read_bytes())
+    return digest.hexdigest()[:8]
+
+
+ASSET_VERSION = _asset_version()
 
 
 @asynccontextmanager
@@ -65,6 +76,10 @@ def config(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
         "target_repo": settings.superset_fork_repo,
         "demo_mode": settings.demo_mode,
         "github_token_configured": bool(settings.github_token),
+        "red_team_url": settings.red_team_public_url,
+        "dashboard_url": settings.dashboard_public_url,
+        "red_team_port": settings.red_team_port,
+        "dashboard_port": settings.dashboard_port,
     }
 
 
@@ -130,5 +145,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
-def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+def index() -> HTMLResponse:
+    html = (STATIC_DIR / "index.html").read_text()
+    html = html.replace(
+        'href="/static/style.css"',
+        f'href="/static/style.css?v={ASSET_VERSION}"',
+    ).replace(
+        'src="/static/app.js"',
+        f'src="/static/app.js?v={ASSET_VERSION}"',
+    )
+    return HTMLResponse(html)

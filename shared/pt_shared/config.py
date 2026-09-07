@@ -67,6 +67,14 @@ class Settings(BaseSettings):
     blue_team_url: str = Field(
         default="http://blue-team:8000", alias="BLUE_TEAM_URL"
     )
+    red_team_public_url: str = Field(
+        default="", alias="RED_TEAM_PUBLIC_URL"
+    )
+    dashboard_public_url: str = Field(
+        default="", alias="DASHBOARD_PUBLIC_URL"
+    )
+    red_team_port: int = Field(default=8001, alias="RED_TEAM_PORT")
+    dashboard_port: int = Field(default=8003, alias="DASHBOARD_PORT")
 
     @property
     def superset_owner(self) -> str:

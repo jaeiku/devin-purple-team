@@ -29,8 +29,8 @@ code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 24px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(90deg, rgba(255,77,79,.12), transparent 60%);
-  position: sticky; top: 0; z-index: 5; backdrop-filter: blur(6px);
+  background: linear-gradient(90deg, rgba(255,77,79,.12), transparent 60%), var(--bg);
+  position: sticky; top: 0; z-index: 5;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand h1 { font-size: 18px; letter-spacing: 3px; margin: 0; color: var(--red); }
@@ -44,6 +44,11 @@ code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo
 .badge { padding: 3px 8px; border-radius: 999px; font-size: 11px; letter-spacing: 1px; border: 1px solid var(--line); }
 .badge.demo { background: rgba(124,92,255,.15); color: #b9a7ff; border-color: #40348a; }
 .badge.live { background: rgba(255,59,48,.15); color: #ff8c86; border-color: #6b2320; }
+.nav-link {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  padding: 6px 10px; border-radius: 999px; font-size: 11px; text-decoration: none;
+}
+.nav-link:hover { border-color: var(--accent); text-decoration: none; }
 
 main { padding: 20px 24px 60px; max-width: 1400px; margin: 0 auto; }
 

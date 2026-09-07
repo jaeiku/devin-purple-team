@@ -16,6 +16,35 @@ function escapeHtml(value) {
   }[c]));
 }
 
+function siblingUrl(port, override) {
+  if (override) return override;
+  const { protocol, hostname } = window.location;
+  const m = hostname.match(/^(\d+)--(.+)$/);
+  if (m) return `${protocol}//${port}--${m[2]}`;
+  return `${protocol}//${hostname}:${port}`;
+}
+
+function fmtLocal(iso) {
+  const raw = String(iso ?? "");
+  if (!raw) return raw;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function localZoneLabel() {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const minutes = -new Date().getTimezoneOffset();
+  const sign = minutes >= 0 ? "+" : "-";
+  const absolute = Math.abs(minutes);
+  const hours = Math.floor(absolute / 60);
+  const remainder = absolute % 60;
+  const offset = `UTC${sign}${hours}${remainder ? `:${String(remainder).padStart(2, "0")}` : ""}`;
+  return timezone ? `${offset} (${timezone})` : offset;
+}
+
 async function json(path) {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
@@ -82,7 +111,7 @@ function renderFeed(data) {
       : "";
     return `<tr class="sev-${inj.severity}">
       <td><span class="sev ${inj.severity}">${inj.severity}</span></td>
-      <td>${escapeHtml(inj.title)}<br><span class="muted mono">${escapeHtml(inj.file_path)}</span></td>
+      <td>${escapeHtml(inj.title)}<br><span class="muted mono">${escapeHtml(inj.file_path)}</span><br><span class="muted mono">${escapeHtml(fmtLocal(inj.created_at))}</span></td>
       <td>${escapeHtml(data.category_labels[inj.category] || inj.category)}</td>
       <td>${inj.issue_number ? `<a href="${escapeHtml(inj.issue_url)}" target="_blank" rel="noopener">#${inj.issue_number}</a>` : "&mdash;"}</td>
       <td>${s && s.session_id ? `<a href="${escapeHtml(s.session_url)}" target="_blank" rel="noopener" class="mono">${escapeHtml(s.session_id)}</a>` : '<span class="muted">not started</span>'}</td>
@@ -101,7 +130,7 @@ function renderLog(events) {
   $("log").innerHTML = events
     .map((e) => {
       const service = e.service.replace("-team", "");
-      const ts = (e.ts || "").replace("T", " ").slice(0, 19);
+      const ts = fmtLocal(e.ts);
       return `<div class="log-line ${service} ${e.level}">
         <span class="ts">${escapeHtml(ts)}</span>
         <span class="svc">${escapeHtml(e.service)}</span>
@@ -134,6 +163,7 @@ function renderSummary(summary) {
 async function refresh() {
   const [data, log] = await Promise.all([json("/api/overview"), json("/api/events?limit=80")]);
   $("target-repo").textContent = data.config.target_repo;
+  $("red-team-link").href = siblingUrl(data.config.red_team_port, data.config.red_team_url);
   $("t-issues-link").href =
     `https://github.com/${data.config.target_repo}/issues?q=label%3Ared-team`;
   const badge = $("mode-badge");
@@ -160,8 +190,9 @@ document.querySelectorAll(".tab").forEach((tab) => {
 });
 
 setInterval(() => {
-  $("clock").textContent = new Date().toISOString().replace("T", " ").slice(0, 19) + "Z";
+  $("clock").textContent = fmtLocal(new Date());
 }, 1000);
 
+$("log-zone").textContent = `(local time, ${localZoneLabel()})`;
 refresh().catch((err) => console.error(err));
 setInterval(() => refresh().catch((err) => console.error(err)), 5000);
