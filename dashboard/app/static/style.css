@@ -143,3 +143,5 @@ a:hover { text-decoration: underline; }
 .answer p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { font-size: 12px; padding: 5px 10px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); }
+.remove-btn { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1; }
+.remove-btn:hover { color: var(--bad); border-color: var(--bad); }

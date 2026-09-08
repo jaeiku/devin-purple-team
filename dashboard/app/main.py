@@ -7,13 +7,14 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pt_shared.config import Settings, get_settings
 from pt_shared.db import get_db, init_db
 from pt_shared.logging_utils import get_logger
 from pt_shared.store import (
+    delete_injection,
     list_injections,
     list_sessions,
     metrics,
@@ -91,6 +92,21 @@ def overview(
             "dashboard_port": settings.dashboard_port,
         },
     }
+
+
+@app.delete("/api/injections/{injection_id}")
+def remove_injection(
+    injection_id: int, db: Session = Depends(get_db)
+) -> dict[str, Any]:
+    """Drop an injection and its Devin sessions from the dashboard."""
+
+    injection = delete_injection(db, injection_id)
+    if injection is None:
+        raise HTTPException(status_code=404, detail="injection not found")
+    get_logger(SERVICE).info(
+        f"injection {injection.id} (issue #{injection.issue_number}) removed from dashboard"
+    )
+    return {"deleted": injection.id, "issue_number": injection.issue_number}
 
 
 @app.get("/api/events")
