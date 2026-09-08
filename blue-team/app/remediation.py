@@ -69,6 +69,21 @@ changes.
 """
 
 
+def _enrich_from_injection(db: Session, event: IssueEvent) -> IssueEvent:
+    injection = get_injection_by_issue(db, event.issue_number)
+    if injection is None:
+        return event
+    return event.model_copy(
+        update={
+            "category": event.category or injection.category,
+            "severity": event.severity or injection.severity.value,
+            "file_path": event.file_path or injection.file_path,
+            "branch": event.branch or injection.branch,
+            "vuln_id": event.vuln_id or injection.vuln_id,
+        }
+    )
+
+
 def _record_refusal(
     db: Session,
     event: IssueEvent,
@@ -107,10 +122,47 @@ def _record_refusal(
 
 
 def handle_issue(
-    db: Session, event: IssueEvent, settings: Settings
+    db: Session, event: IssueEvent, settings: Settings, verify: bool = False
 ) -> dict[str, Any]:
     """Entry point for an ``issues: opened`` event."""
 
+    if verify and not settings.demo_mode and settings.github_token:
+        try:
+            with GitHubClient(settings) as gh:
+                issue = gh.get_issue(event.issue_number)
+        except GitHubError as exc:
+            log_event(
+                SERVICE,
+                "issue_rejected_unverified",
+                f"could not verify issue #{event.issue_number} on GitHub: {exc}",
+                level="warning",
+                data={"issue_number": event.issue_number},
+                db=db,
+            )
+            return {"accepted": False, "reason": "issue_not_verified"}
+        if issue.get("state") != "open":
+            log_event(
+                SERVICE,
+                "issue_rejected_unverified",
+                f"issue #{event.issue_number} is not open on GitHub",
+                level="warning",
+                data={"issue_number": event.issue_number},
+                db=db,
+            )
+            return {"accepted": False, "reason": "issue_not_verified"}
+        event = event.model_copy(
+            update={
+                "labels": [
+                    str(label.get("name", ""))
+                    for label in issue.get("labels", [])
+                    if isinstance(label, dict)
+                ],
+                "title": str(issue.get("title", "")),
+                "issue_url": str(issue.get("html_url", "")),
+            }
+        )
+
+    event = _enrich_from_injection(db, event)
     repo = event.repo or settings.superset_fork_repo
     if repo != settings.superset_fork_repo:
         log_event(

@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from urllib.parse import urlparse
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Engine, create_engine, event, inspect
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -68,15 +68,27 @@ def get_sessionmaker() -> sessionmaker[Session]:
 def _create_all(engine: Engine) -> None:
     """Create tables under a lock so parallel service startups don't race."""
 
-    if engine.dialect.name != "postgresql":
-        Base.metadata.create_all(engine)
-        return
-
-    # All three services call create_all at once against a fresh database;
-    # without serialisation they collide creating the shared ENUM types.
     with engine.begin() as conn:
-        conn.exec_driver_sql("SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK,))
+        if engine.dialect.name == "postgresql":
+            # All three services call create_all at once against a fresh
+            # database; without serialisation they collide creating enums.
+            conn.exec_driver_sql(
+                "SELECT pg_advisory_xact_lock(%s)", (_SCHEMA_LOCK,)
+            )
         Base.metadata.create_all(conn)
+        preparer = engine.dialect.identifier_preparer
+        for table in Base.metadata.sorted_tables:
+            existing = {
+                column["name"] for column in inspect(conn).get_columns(table.name)
+            }
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                type_sql = column.type.compile(dialect=engine.dialect)
+                conn.exec_driver_sql(
+                    f"ALTER TABLE {preparer.quote(table.name)} "
+                    f"ADD COLUMN {preparer.quote(column.name)} {type_sql}"
+                )
 
 
 def init_db(retries: int = 30, delay: float = 2.0) -> None:

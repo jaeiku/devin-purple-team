@@ -163,6 +163,9 @@ class DevinSession(Base):
     )
     pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     simulated: Mapped[bool] = mapped_column(default=False)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
@@ -210,6 +213,7 @@ class DevinSession(Base):
             "pr_number": self.pr_number,
             "stage": self.stage.value,
             "simulated": self.simulated,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

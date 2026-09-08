@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import hashlib
+import hmac
+import json
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pt_shared.config import Settings, get_settings
 from pt_shared.db import get_db, init_db
 from pt_shared.logging_utils import log_event
@@ -92,9 +95,14 @@ def issue_opened(
     event: IssueEvent,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
+    authorization: str = Header(default=""),
 ) -> dict[str, Any]:
-    """Called by the GitHub Actions workflow / webhook, or by the red team in demo mode."""
+    """Called by the GitHub Actions workflow or the red team in demo mode."""
 
+    if settings.blue_team_token:
+        expected = f"Bearer {settings.blue_team_token}"
+        if not hmac.compare_digest(authorization, expected):
+            raise HTTPException(status_code=401, detail="invalid bearer token")
     log_event(
         SERVICE,
         "issue_received",
@@ -102,7 +110,7 @@ def issue_opened(
         data=event.model_dump(),
         db=db,
     )
-    return handle_issue(db, event, settings)
+    return handle_issue(db, event, settings, verify=True)
 
 
 @app.post("/api/webhooks/github")
@@ -113,15 +121,26 @@ async def github_webhook(
 ) -> dict[str, Any]:
     """Raw GitHub ``issues`` webhook body, for direct webhook wiring."""
 
-    payload = await request.json()
+    raw_body = await request.body()
+    if settings.blue_team_token:
+        supplied = request.headers.get("X-Hub-Signature-256", "")
+        expected = "sha256=" + hmac.new(
+            settings.blue_team_token.encode(), raw_body, hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(supplied, expected):
+            raise HTTPException(status_code=401, detail="invalid webhook signature")
+    try:
+        payload = json.loads(raw_body)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"bad webhook payload: {exc}")
     action = payload.get("action")
-    if action != "opened":
+    if action not in ("opened", "labeled"):
         return {"accepted": False, "reason": f"ignored action {action}"}
     try:
         event = IssueEvent.from_webhook(payload)
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f"bad webhook payload: {exc}")
-    return handle_issue(db, event, settings)
+    return handle_issue(db, event, settings, verify=True)
 
 
 @app.post("/api/poll")

@@ -57,12 +57,10 @@ app = FastAPI(title="Purple Team - Red Team Service", lifespan=lifespan)
 
 class InjectRequest(BaseModel):
     vuln_id: str
-    notify_blue_team: bool = True
 
 
 class InjectAllRequest(BaseModel):
     vuln_ids: list[str] | None = None
-    notify_blue_team: bool = True
 
 
 @app.get("/healthz")
@@ -91,14 +89,6 @@ def get_catalog() -> dict[str, Any]:
     }
 
 
-@app.get("/api/catalog/{vuln_id}")
-def get_catalog_entry(vuln_id: str) -> dict[str, Any]:
-    try:
-        return catalog.get(vuln_id).as_dict()
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"unknown vuln_id {vuln_id}")
-
-
 @app.get("/api/injections")
 def get_injections(db: Session = Depends(get_db)) -> dict[str, Any]:
     return {"injections": [i.as_dict() for i in list_injections(db)]}
@@ -115,7 +105,7 @@ def post_inject(
             status_code=404, detail=f"unknown vuln_id {body.vuln_id}"
         )
     try:
-        return inject(db, body.vuln_id, settings, body.notify_blue_team)
+        return inject(db, body.vuln_id, settings)
     except InjectionError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
@@ -135,7 +125,7 @@ def post_inject_all(
             results.append({"vuln_id": vuln_id, "error": "unknown vuln_id"})
             continue
         try:
-            results.append(inject(db, vuln_id, settings, body.notify_blue_team))
+            results.append(inject(db, vuln_id, settings))
         except InjectionError as exc:
             results.append({"vuln_id": vuln_id, "error": str(exc)})
     return {"results": results}

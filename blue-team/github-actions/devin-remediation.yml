@@ -1,24 +1,17 @@
 # Copy this file into the Superset fork as
 #   .github/workflows/devin-remediation.yml
 #
-# It fires when the red team opens an issue and hands the issue to the blue
-# team. Two wiring options, chosen automatically at run time:
+# It fires when the red team opens or labels an issue and hands the normalised
+# issue to the blue team, which re-validates it against GitHub and owns
+# guardrails, dedupe and state.
 #
-#   A. Backend-mediated (preferred): set the repository secret BLUE_TEAM_URL to
-#      a URL where the blue team service is reachable from GitHub's runners
-#      (public host, or a tunnel such as `cloudflared`/`ngrok` for a demo).
-#      The backend owns guardrails, dedupe, state and issue comments.
-#
-#   B. Direct invocation (fallback, no backend exposure needed): set the
-#      repository secret DEVIN_API_KEY. The workflow calls the Devin API
-#      itself and then best-effort POSTs the resulting session back to the
-#      blue team's /api/events/session-observed style ingest if BLUE_TEAM_URL
-#      is set later. State recording is only complete in option A.
+# BLUE_TEAM_URL must point to a reachable blue-team service (for example a
+# public host or a Cloudflare/ngrok tunnel for a demo). BLUE_TEAM_TOKEN is
+# recommended to authenticate the push delivery.
 #
 # Required repository secrets:
-#   BLUE_TEAM_URL   - e.g. https://purple-demo.example.com  (option A)
-#   DEVIN_API_KEY   - Devin API key                          (option B)
-#   MAX_ACU_PER_SESSION - optional numeric cap, defaults to 10 (option B)
+#   BLUE_TEAM_URL   - e.g. https://purple-demo.example.com
+#   BLUE_TEAM_TOKEN - shared bearer token
 
 name: Devin autonomous remediation
 
@@ -37,12 +30,9 @@ jobs:
       contains(join(github.event.issue.labels.*.name, ','), 'red-team') ||
       contains(join(github.event.issue.labels.*.name, ','), 'security')
     runs-on: ubuntu-latest
-    # The `secrets` context is not available in step-level `if:`, so the two
-    # wiring options are selected via job-level env instead.
     env:
       BLUE_TEAM_URL: ${{ secrets.BLUE_TEAM_URL }}
-      DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
-      MAX_ACU_PER_SESSION: ${{ secrets.MAX_ACU_PER_SESSION || '10' }}
+      BLUE_TEAM_TOKEN: ${{ secrets.BLUE_TEAM_TOKEN }}
     steps:
       - name: Build normalised issue payload
         id: payload
@@ -68,70 +58,17 @@ jobs:
           print("json=" + json.dumps(payload))
           PY
 
-      # ---- Option A: hand off to the blue team backend --------------------
       - name: Notify blue team backend
         if: env.BLUE_TEAM_URL != ''
         env:
           PAYLOAD: ${{ steps.payload.outputs.json }}
         run: |
+          AUTH_HEADER=()
+          if [ -n "$BLUE_TEAM_TOKEN" ]; then
+            AUTH_HEADER=(-H "Authorization: Bearer $BLUE_TEAM_TOKEN")
+          fi
           curl --fail-with-body -sS -X POST \
             "${BLUE_TEAM_URL%/}/api/events/issue-opened" \
             -H 'Content-Type: application/json' \
+            "${AUTH_HEADER[@]}" \
             -d "$PAYLOAD"
-
-      # ---- Option B: call the Devin API directly --------------------------
-      - name: Create Devin remediation session
-        if: env.BLUE_TEAM_URL == '' && env.DEVIN_API_KEY != ''
-        id: devin
-        env:
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          REPO: ${{ github.repository }}
-        run: |
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json, os, urllib.request
-
-          issue = os.environ["ISSUE_NUMBER"]
-          repo = os.environ["REPO"]
-          prompt = f"""You are remediating a security vulnerability in the repository `{repo}`.
-
-          GitHub issue: #{issue} ({os.environ['ISSUE_URL']})
-          Title: {os.environ['ISSUE_TITLE']}
-
-          Read the issue in full; it contains the vulnerable file and remediation guidance.
-          Fix the vulnerability with a minimal, focused change, keep public function
-          signatures unchanged, touch no unrelated files, and open a pull request whose
-          description includes "Closes #{issue}".
-          """
-          body = json.dumps({
-              "prompt": prompt,
-              "title": f"[blue-team] Remediate issue #{issue} in {repo}",
-              "idempotent": True,
-              "max_acu_limit": int(float(os.environ["MAX_ACU_PER_SESSION"])),
-              "tags": ["purple-team", "blue-team", f"issue-{issue}"],
-          }).encode()
-          req = urllib.request.Request(
-              "https://api.devin.ai/v1/sessions",
-              data=body,
-              headers={
-                  "Authorization": f"Bearer {os.environ['DEVIN_API_KEY']}",
-                  "Content-Type": "application/json",
-              },
-          )
-          with urllib.request.urlopen(req) as resp:
-              data = json.load(resp)
-          print("session_id=" + data["session_id"])
-          print("session_url=" + data["url"])
-          PY
-
-      - name: Comment session link on the issue
-        if: ${{ steps.devin.outputs.session_url != '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          SESSION_URL: ${{ steps.devin.outputs.session_url }}
-        run: |
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
-            "### Blue team: autonomous remediation started
-          Devin session: $SESSION_URL"

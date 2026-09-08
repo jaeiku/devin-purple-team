@@ -45,6 +45,7 @@ SERVICE = "blue-team"
 POLL_INTERVAL = float(os.getenv("POLL_INTERVAL_SECONDS", "15"))
 # Wall-clock seconds a simulated session spends "working" before finishing.
 SIM_DURATION = float(os.getenv("SIMULATED_SESSION_SECONDS", "20"))
+_consumption_unavailable = False
 
 _STATUS_MAP = {
     "working": SessionStatus.running,
@@ -100,6 +101,7 @@ def _finish(
 ) -> None:
     record.status = status
     record.status_detail = detail[:200]
+    record.finished_at = dt.datetime.now(dt.timezone.utc)
     if pr_url:
         record.pr_url = pr_url
         record.pr_number = parse_pr_number(pr_url)
@@ -209,16 +211,8 @@ def watch_github_issues(db: Session, settings: Settings) -> int:
             "labels": labels,
             "repo": settings.superset_fork_repo,
         }
-        injection = get_injection_by_issue(db, issue_number)
-        if injection is not None:
-            event_data.update(
-                category=injection.category,
-                severity=injection.severity.value,
-                file_path=injection.file_path,
-                branch=injection.branch,
-                vuln_id=injection.vuln_id,
-            )
         event = IssueEvent(**event_data)
+        event = remediation._enrich_from_injection(db, event)
         log_event(
             SERVICE,
             "github_issue_detected",
@@ -248,7 +242,8 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
         ]
         live = [s for s in sessions if not s.simulated and s.session_id]
         usage: dict[str, float] = {}
-        if live and settings.devin_api_key:
+        global _consumption_unavailable
+        if live and settings.devin_api_key and not _consumption_unavailable:
             try:
                 with DevinClient(
                     settings.devin_api_key, settings.devin_api_base
@@ -256,8 +251,16 @@ def poll_once(settings: Settings | None = None) -> dict[str, int]:
                     usage = devin.consumption_by_session_url(
                         since=dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)
                     )
-            except DevinAPIError:
+            except DevinAPIError as exc:
                 usage = {}
+                _consumption_unavailable = True
+                log_event(
+                    SERVICE,
+                    "acu_telemetry_unavailable",
+                    f"consumption telemetry unavailable; recording random estimates: {exc}",
+                    level="info",
+                    db=db,
+                )
 
         for record in sessions:
             if record.status == SessionStatus.queued:
@@ -468,6 +471,7 @@ def _release_queued(db: Session, settings: Settings) -> int:
             category=record.category,
             severity=record.severity,
         )
+        event = remediation._enrich_from_injection(db, event)
         log_event(
             SERVICE,
             "session_dequeued",

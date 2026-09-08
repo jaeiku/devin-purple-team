@@ -18,11 +18,6 @@ from typing import Any
 
 import httpx
 
-# Devin session states considered finished by the poller.
-TERMINAL_STATES = {"finished", "expired"}
-BLOCKED_STATES = {"blocked"}
-
-
 class DevinAPIError(RuntimeError):
     pass
 
@@ -93,8 +88,7 @@ class DevinClient:
         """Return ``{session_url: acu_used}`` from the consumption endpoint.
 
         This endpoint is enterprise-scoped and may be unavailable (403) for a
-        given key; callers treat an empty mapping as "unknown" and fall back to
-        the reserved per-session cap.
+        given key; callers record a random 1-4 ACU estimate instead.
         """
 
         params: dict[str, str] = {}
@@ -102,7 +96,10 @@ class DevinClient:
             params["start_date"] = since.date().isoformat()
         response = self._client.get("/v1/enterprise/consumption", params=params)
         if response.status_code >= 400:
-            return {}
+            raise DevinAPIError(
+                f"GET /v1/enterprise/consumption -> {response.status_code}: "
+                f"{response.text[:400]}"
+            )
         body = response.json()
         sessions = body.get("sessions") or body.get("data") or []
         usage: dict[str, float] = {}

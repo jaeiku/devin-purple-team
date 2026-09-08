@@ -146,7 +146,7 @@ function renderSummary(summary) {
   $("verdict-badge").textContent = summary.verdict.replace("_", " ");
   $("verdict-badge").className = `verdict-badge ${summary.verdict}`;
   $("verdict-headline").textContent = summary.headline;
-  $("s-coverage").textContent = `${summary.detection_to_pr_coverage_pct}%`;
+  $("s-coverage").textContent = `${summary.remediation_coverage_pct}%`;
   $("s-ttp").textContent = `${summary.median_time_to_pr_minutes}m`;
   $("s-acu").textContent = summary.mean_acu_per_remediation;
   $("s-budget").textContent = `${summary.budget_used_pct}%`;

@@ -53,7 +53,3 @@ class IssueEvent(BaseModel):
             labels=labels,
             repo=repo,
         )
-
-
-class SessionStatusOut(BaseModel):
-    session: dict[str, Any]
