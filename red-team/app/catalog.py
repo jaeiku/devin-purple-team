@@ -512,7 +512,8 @@ def issue_body(
         "### Where it lives",
         f"The vulnerable code was added as a self-contained synthetic file at "
         f"`{vuln.file_path}` on branch `{branch}`. No upstream Superset "
-        f"code was modified.",
+        f"code was modified. Any fix pull request must target branch `{branch}` "
+        "rather than the default branch.",
     ]
     if commit_url:
         lines += ["", f"Injection commit: {commit_url}"]

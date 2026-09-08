@@ -35,6 +35,13 @@ def build_prompt(event: IssueEvent, settings: Settings) -> str:
     """
 
     repo = event.repo or settings.superset_fork_repo
+    target_branch = event.branch or "the repository's default branch"
+    branch_guidance = (
+        "The vulnerable code is on that branch — base your work on it, not on "
+        "the default branch."
+        if event.branch
+        else "No injection branch was supplied, so use the repository's default branch."
+    )
     location = (
         f"The vulnerable code is in `{event.file_path}` on branch "
         f"`{event.branch}`.\n"
@@ -54,10 +61,10 @@ description, the exact file that is vulnerable, and remediation guidance.
 Your task:
 1. Fix the vulnerability described in issue #{event.issue_number}. Apply the \
 remediation guidance in the issue; keep the module's public function \
-signatures unchanged so existing callers keep working.
+signatures unchanged so existing callers keep working. {branch_guidance}
 2. Do not modify any file unrelated to this vulnerability, and do not touch \
 upstream Apache Superset internals.
-3. Open a pull request against the repository's default branch whose \
+3. Open a pull request against branch `{target_branch}` whose \
 description explains the vulnerability, the fix, and includes the line \
 "Closes #{event.issue_number}" so the issue is closed on merge.
 

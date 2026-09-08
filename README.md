@@ -220,8 +220,10 @@ duplicate Devin sessions.
    issue on GitHub, runs the guardrails, and creates a Devin session with
    `max_acu_limit` set from `MAX_ACU_PER_SESSION`. It comments the session link
    on the issue, polls the session, and comments again with the PR when Devin
-   finishes. A Devin session that reports `blocked` while a PR exists is
-   treated as a completed session (Devin is waiting on human review).
+   finishes. Devin targets the injection branch where the vulnerability lives;
+   the blue team closes the issue on merge. A Devin session that reports
+   `blocked` while a PR exists is treated as a completed session (Devin is
+   waiting on human review).
 5. The blue team then watches the PR itself. The finding counts as
    **remediated** only when the PR is merged; a closed-unmerged PR surfaces as
    `pr_closed`.
