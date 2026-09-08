@@ -16,7 +16,7 @@ the same target so the defence can be measured.
 | Red-team issues (remediated + in progress) | <https://github.com/jaeiku/superset/issues?q=label%3Ared-team> |
 | Devin fix PRs | <https://github.com/jaeiku/superset/pulls?q=is%3Apr+fix%28security%29> |
 | Presentation slides (HTML, EN/KR) | [`docs/slides.html`](docs/slides.html) · [open rendered](https://htmlpreview.github.io/?https://github.com/jaeiku/devin-purple-team/blob/main/docs/slides.html) — ←/→ to navigate, `L` toggles language |
-| Demo video (Loom) | _coming soon_ |
+| Demo video (Loom, ~5 min) | <https://www.loom.com/share/b489e648ec6040e89ad62fb0dd8229bc> |
 
 Everything runs with `docker compose up`, and a **demo mode** (default) runs the
 complete lifecycle with **no credentials and no writes to GitHub** — ideal for
