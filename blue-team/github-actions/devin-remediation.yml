@@ -63,6 +63,9 @@ jobs:
         env:
           PAYLOAD: ${{ steps.payload.outputs.json }}
         run: |
+          # Secrets pasted with a trailing newline would split the header block.
+          BLUE_TEAM_URL="$(printf '%s' "$BLUE_TEAM_URL" | tr -d '[:space:]')"
+          BLUE_TEAM_TOKEN="$(printf '%s' "$BLUE_TEAM_TOKEN" | tr -d '[:space:]')"
           AUTH_HEADER=()
           if [ -n "$BLUE_TEAM_TOKEN" ]; then
             AUTH_HEADER=(-H "Authorization: Bearer $BLUE_TEAM_TOKEN")
