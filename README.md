@@ -15,6 +15,7 @@ the same target so the defence can be measured.
 | Target fork | <https://github.com/jaeiku/superset> |
 | Red-team issues (remediated + in progress) | <https://github.com/jaeiku/superset/issues?q=label%3Ared-team> |
 | Devin fix PRs | <https://github.com/jaeiku/superset/pulls?q=is%3Apr+fix%28security%29> |
+| Presentation slides (HTML, EN/KR) | [`docs/slides.html`](docs/slides.html) · [open rendered](https://htmlpreview.github.io/?https://github.com/jaeiku/devin-purple-team/blob/main/docs/slides.html) — ←/→ to navigate, `L` toggles language |
 | Demo video (Loom) | _coming soon_ |
 
 Everything runs with `docker compose up`, and a **demo mode** (default) runs the

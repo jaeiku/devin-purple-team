@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Devin Purple Team — Autonomous Security Remediation for Telecom</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070910;--panel:#10141d;--panel-2:#171c27;--line:#232a38;
+  --text:#e8ebf2;--muted:#7f8798;--blue:#4c8dff;--cyan:#35d0e0;
+  --ok:#3ddc84;--warn:#ffd23f;--bad:#ff4d5e;--red:#ff3b30;--high:#ff8c1a;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.deck{position:relative;width:100vw;height:100vh}
+.slide{position:absolute;inset:0;padding:64px 88px;display:none;flex-direction:column;
+  background:
+    radial-gradient(1200px 500px at 80% -10%,rgba(76,141,255,.10),transparent 60%),
+    radial-gradient(900px 400px at -10% 110%,rgba(53,208,224,.08),transparent 60%),
+    var(--bg);}
+.slide.active{display:flex;animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.slide::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:48px 48px;mask-image:radial-gradient(ellipse at center,black 40%,transparent 80%)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;position:relative;z-index:1}
+.brand{display:flex;align-items:center;gap:12px;font-size:12px;letter-spacing:3px;color:var(--muted);font-weight:600}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--blue);box-shadow:0 0 12px var(--blue);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.tag{font-size:11px;letter-spacing:2px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;color:var(--muted);text-transform:uppercase}
+.tag.what{color:var(--warn);border-color:rgba(255,210,63,.35)}
+.tag.how{color:var(--cyan);border-color:rgba(53,208,224,.35)}
+.tag.why{color:var(--ok);border-color:rgba(61,220,132,.35)}
+.tag.when{color:var(--blue);border-color:rgba(76,141,255,.35)}
+h1{font-size:56px;line-height:1.05;margin:0 0 18px;font-weight:800;letter-spacing:-1.5px}
+h2{font-size:40px;line-height:1.1;margin:0 0 22px;font-weight:800;letter-spacing:-1px}
+h2 em{color:var(--blue);font-style:normal}
+p.lead{font-size:22px;color:#b9c0cf;line-height:1.5;max-width:900px;margin:0}
+.body{flex:1;position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center}
+.grid{display:grid;gap:18px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px}
+.card h3{margin:0 0 10px;font-size:17px;letter-spacing:.2px}
+.card p,.card li{color:#aab2c3;font-size:16px;line-height:1.5;margin:0}
+.card ul{margin:0;padding-left:18px}.card li{margin-bottom:6px}
+.kpi{font-size:46px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+.kpi small{font-size:14px;color:var(--muted);font-weight:500;letter-spacing:0;display:block;margin-top:8px}
+.red{color:var(--red)}.blue{color:var(--blue)}.cyan{color:var(--cyan)}.ok{color:var(--ok)}.warn{color:var(--warn)}.muted{color:var(--muted)}
+.accent{border-left:4px solid var(--blue)}
+.accent.r{border-left-color:var(--red)}.accent.c{border-left-color:var(--cyan)}.accent.o{border-left-color:var(--ok)}
+.flow{display:flex;align-items:stretch;gap:12px}
+.flow .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px}
+.flow .step .n{font-size:11px;letter-spacing:2px;color:var(--muted)}
+.flow .step .t{font-weight:700;font-size:17px;margin:6px 0}
+.flow .step .d{font-size:14px;color:#aab2c3;line-height:1.45}
+.flow .arrow{align-self:center;color:var(--muted);font-size:26px}
+.pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;letter-spacing:.5px;border:1px solid var(--line);background:var(--panel-2)}
+.pill.queued{color:var(--muted)}.pill.investigating{color:var(--cyan);border-color:rgba(53,208,224,.4)}
+.pill.pr_open{color:var(--warn);border-color:rgba(255,210,63,.4)}.pill.merged{color:var(--ok);border-color:rgba(61,220,132,.4)}
+.pill.failed{color:var(--bad);border-color:rgba(255,77,94,.4)}
+pre{background:#0b0e16;border:1px solid var(--line);border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.55;color:#cfd6e4;overflow:hidden;margin:0}
+pre .k{color:var(--blue)}pre .s{color:var(--ok)}pre .c{color:var(--muted)}
+.meter{height:10px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-top:10px}
+.meter i{display:block;height:100%;width:9%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.foot{position:absolute;left:88px;right:88px;bottom:28px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px;letter-spacing:1px;z-index:1}
+.title .body{justify-content:center}
+.title h1{font-size:68px;max-width:1000px}
+.title .sub{font-size:24px;color:#aab2c3;max-width:900px;line-height:1.45}
+.legend{display:flex;gap:26px;margin-top:34px}
+.legend span{display:flex;align-items:center;gap:8px;font-size:14px;color:#aab2c3}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.quote{font-size:30px;line-height:1.35;font-weight:600;max-width:1000px;letter-spacing:-.4px}
+.quote b{color:var(--blue)}
+.kbd{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;color:var(--muted);font-size:11px;letter-spacing:1px;z-index:5}
+.progress{position:fixed;left:0;bottom:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--cyan));width:0;z-index:6;transition:width .3s}
+.lang{position:fixed;right:22px;top:18px;z-index:5;display:flex;gap:6px}
+.lang button{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:6px;font-size:11px;letter-spacing:1px;cursor:pointer}
+.lang button.on{color:var(--text);border-color:var(--blue)}
+[data-ko]{display:none}
+body.ko [data-en]{display:none}body.ko [data-ko]{display:revert}
+</style>
+</head>
+<body>
+<div class="lang"><button id="btn-en" class="on">EN</button><button id="btn-ko">한국어</button></div>
+<div class="deck">
+
+<!-- 1 TITLE -->
+<section class="slide title active">
+  <div class="top"><div class="brand"><span class="dot"></span>DEVIN PURPLE TEAM</div><span class="tag">Take-home · Cognition</span></div>
+  <div class="body">
+    <div data-en>
+      <h1>Autonomous security remediation for a telecom operator</h1>
+      <div class="sub">Red team files the vulnerability as a GitHub issue. The issue triggers a guardrailed Devin session. The Blue Team SOC shows leadership it's working.</div>
+    </div>
+    <div data-ko>
+      <h1>통신사를 위한 자율 보안 취약점 복구</h1>
+      <div class="sub">레드팀이 취약점을 GitHub 이슈로 올리면, 그 이슈가 가드레일이 걸린 Devin 세션을 트리거하고, Blue Team SOC가 리더십에게 “잘 돌아간다”를 보여줍니다.</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--red)"></i>Red team · adversary</span>
+      <span><i style="background:var(--blue)"></i>Blue team · Devin + SOC</span>
+      <span><i style="background:var(--cyan)"></i>GitHub · the event bus</span>
+    </div>
+  </div>
+  <div class="foot"><span>jaeiku/devin-purple-team · jaeiku/superset</span><span>Apache Superset · Devin API · Docker</span></div>
+</section>
+
+<!-- 2 WHAT: context -->
+<section class="slide">
+  <div class="top"><div class="brand"><span class="dot"></span>WHAT · PROBLEM FRAMING</div><span class="tag what">What</span></div>
+  <div class="body">
+    <h2 data-en>2025: one of the worst years for <em>Korean telcos</em></h2>
+    <h2 data-ko>2025년, <em>한국 통신사</em>에게 가장 힘들었던 해</h2>
+    <div class="grid g3">
+      <div class="card accent r"><div class="kpi red">3 / 3</div><small class="muted" data-en>SK Telecom · KT · LG U+ — all breached · massive fines · severe reputational damage</small><small class="muted" data-ko>SK텔레콤 · KT · LG U+ 모두 유출 · 막대한 과징금 · 심각한 평판 타격</small></div>
+      <div class="card accent"><div class="kpi">50M</div><small class="muted" data-en>people covered by the three carriers together — almost the entire population</small><small class="muted" data-ko>3사 합산 가입자 — 거의 전 국민 규모</small></div>
+      <div class="card accent c"><div class="kpi cyan">2nd-order</div><small class="muted" data-en>identity centrally keyed on RRN + phone number → a PII leak can cascade into credit fraud &amp; payment takeover</small><small class="muted" data-ko>주민번호 + 휴대폰 중심 신원체계 → 유출이 신용 사기·결제수단 도용으로 확산</small></div>
+    </div>
+    <p class="lead" style="margin-top:26px" data-en>In this demo: one of these telcos runs <b>Apache Superset</b> as its security-monitoring dashboard — <span class="muted">and I'm presenting the solution to the VP of Security / Engineering who owns that stack.</span></p>
+    <p class="lead" style="margin-top:26px" data-ko>이 데모에서는 이 통신사 중 한 곳이 <b>Apache Superset</b>을 보안 모니터링 대시보드로 운영한다고 가정하고 — <span class="muted">그 스택을 책임지는 VP of Security / Engineering에게 솔루션을 발표합니다.</span></p>
+  </div>
+  <div class="foot"><span>WHAT</span><span>02</span></div>
+</section>
+
+<!-- 3 WHAT: the workflow problem -->
+<section class="slide">
+  <div class="top"><div class="brand"><span class="dot"></span>WHAT · THE WORKFLOW PROBLEM</div><span class="tag what">What</span></div>
+  <div class="body">
+    <div class="quote" data-en>For your Superset stack: shrink <b>“vulnerability filed → fix PR ready for review”</b> from days to minutes, 24/7, without adding headcount — and make the loop observable enough that <b>you</b> trust it.</div>
+    <div class="quote" data-ko>귀사의 Superset 스택에서 <b>“취약점 접수 → 리뷰 가능한 수정 PR”</b>을 며칠에서 몇 분으로, 24시간, 인력 추가 없이 — 그리고 <b>여러분이</b> 신뢰할 만큼 관측 가능하게.</div>
+    <div class="grid g3" style="margin-top:40px">
+      <div class="card"><h3 data-en>Your team today</h3><h3 data-ko>귀사의 현재</h3><p data-en>Scanner / pentest → ticket → on-call picks it up hours or days later → manual fix → PR.</p><p data-ko>스캐너·침투테스트 → 티켓 → 수 시간~수일 후 온콜이 처리 → 수동 수정 → PR.</p></div>
+      <div class="card accent"><h3 data-en>With this system</h3><h3 data-ko>이 시스템에서는</h3><p data-en>Issue opened → Devin session in ≤15 s → fix PR in minutes → human reviews &amp; merges.</p><p data-ko>이슈 생성 → 15초 내 Devin 세션 → 수 분 내 수정 PR → 사람이 리뷰·머지.</p></div>
+      <div class="card"><h3 data-en>Your team stays in control</h3><h3 data-ko>통제권은 귀사에</h3><p data-en>Budget ceilings, concurrency caps, and merge remain your decisions.</p><p data-ko>예산 상한·동시 실행 수·머지는 귀사의 결정으로 남습니다.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>WHAT</span><span>03</span></div>
+</section>
+
+<!-- 4 HOW: architecture + demo roadmap -->
+<section class="slide">
+  <div class="top"><div class="brand"><span class="dot"></span>HOW · ARCHITECTURE &amp; WHAT I'LL SHOW YOU</div><span class="tag how">How</span></div>
+  <div class="body">
+    <h2 data-en>Any attack — a red-team test or a real incident — becomes <em>one GitHub issue</em>; the issue drives everything</h2>
+    <h2 data-ko>레드팀 테스트든 실제 사고든, 모든 공격은 <em>GitHub 이슈 하나</em>가 되고, 그 이슈가 전부를 움직입니다</h2>
+    <div class="flow" style="margin-top:4px">
+      <div class="step" style="border-top:3px solid var(--red)"><div class="n">1 · RED TEAM · ATTACK WORKFLOW</div><div class="t" data-en>Inject</div><div class="t" data-ko>Inject</div><div class="d" data-en>A separate attack workflow that stands in for <b>any</b> attack: 8 telco vulnerability types, each Inject plants a real vulnerable file in your Superset fork and files a real issue — for testing, or as a real finding would arrive.</div><div class="d" data-ko><b>모든</b> 공격을 대신하는 별도 공격 워크플로우: 통신사 취약점 8유형, Inject마다 fork에 실제 취약 파일을 심고 실제 이슈를 생성 — 테스트용으로도, 실제 finding이 들어오는 방식 그대로.</div></div>
+      <div class="arrow">→</div>
+      <div class="step" style="border-top:3px solid var(--cyan)"><div class="n">2 · YOUR GITHUB · THE EVENT</div><div class="t" data-en>Issue</div><div class="t" data-ko>이슈</div><div class="d" data-en>The <span class="mono">red-team</span> issue is the trigger — identical whether a scanner, a pentester or this workflow filed it. Polled every 15 s (Actions &amp; webhook also wired).</div><div class="d" data-ko><span class="mono">red-team</span> 이슈가 트리거 — 스캐너·침투테스터·이 워크플로우 누가 올려도 동일. 15초 폴링(Actions·webhook도 연결).</div></div>
+      <div class="arrow">→</div>
+      <div class="step" style="border-top:3px solid var(--blue)"><div class="n">3 · BLUE TEAM · GUARDRAILS → DEVIN</div><div class="t" data-en>Session → PR</div><div class="t" data-ko>세션 → PR</div><div class="d" data-en>Your limits first — one session per issue, ACU cap per session, concurrency, a hard budget ceiling — then <span class="mono">POST /v1/sessions</span>. Devin reads the module, fixes it, opens a PR that <span class="mono">Closes #N</span>.</div><div class="d" data-ko>귀사의 한도 먼저 — 이슈당 1세션, 세션당 ACU 캡, 동시 수, 하드 예산 상한 — 그다음 세션 생성. Devin이 모듈을 읽고 고쳐 <span class="mono">Closes #N</span> PR을 열음.</div></div>
+      <div class="arrow">→</div>
+      <div class="step" style="border-top:3px solid var(--ok)"><div class="n">4 · BLUE TEAM SOC · YOU DECIDE</div><div class="t" data-en>Review → Merge</div><div class="t" data-ko>리뷰 → 머지</div><div class="d" data-en><span class="pill pr_open">pr_open</span> → you merge → <span class="pill merged">merged</span>. Only merged counts as remediated. Leadership tab: one-sentence verdict, coverage, time-to-PR, ACU.</div><div class="d" data-ko><span class="pill pr_open">pr_open</span> → 귀사가 머지 → <span class="pill merged">merged</span>. 머지된 것만 remediated. Leadership 탭: 한 문장 판정·커버리지·time-to-PR·ACU.</div></div>
+    </div>
+    <div class="grid g3" style="gap:12px;margin-top:24px;max-width:760px">
+      <div><div class="kpi cyan" style="font-size:32px">~3 s</div><small class="muted" data-en>Inject → issue</small><small class="muted" data-ko>Inject → 이슈</small></div>
+      <div><div class="kpi blue" style="font-size:32px">≤15 s</div><small class="muted" data-en>issue → Devin session</small><small class="muted" data-ko>이슈 → Devin 세션</small></div>
+      <div><div class="kpi ok" style="font-size:32px">2–5 min</div><small class="muted" data-en>session → fix PR (observed live)</small><small class="muted" data-ko>세션 → 수정 PR (라이브 실측)</small></div>
+    </div>
+    <p class="lead" style="margin-top:18px;font-size:16px" data-en>Docker Compose · one Postgres · runs inside your boundary · <b>demo mode</b> runs the full lifecycle with zero credentials.</p>
+    <p class="lead" style="margin-top:18px;font-size:16px" data-ko>Docker Compose · Postgres 하나 · 귀사 경계 안에서 구동 · <b>데모 모드</b>는 크리덴셜 없이 전체 라이프사이클 실행.</p>
+  </div>
+  <div class="foot"><span>HOW</span><span>04</span></div>
+</section>
+
+<!-- 5 WHEN: operable · extensible · improving -->
+<section class="slide">
+  <div class="top"><div class="brand"><span class="dot"></span>WHEN · FROM THIS DEMO TO YOUR ESTATE</div><span class="tag when">When</span></div>
+  <div class="body">
+    <h2 data-en>Not a one-off demo — a system that <em>operates</em>, <em>extends</em>, and <em>improves itself</em> through a feedback loop</h2>
+    <h2 data-ko>스쳐 지나가는 데모가 아니라 — <em>운영</em>되고, <em>확장</em>되고, 피드백 루프로 <em>스스로 개선되는</em> 시스템</h2>
+    <div class="grid g3">
+      <div class="card accent"><h3 data-en>1 · Operable today</h3><h3 data-ko>1 · 지금 바로 운영 가능</h3><ul><li data-en>Containers inside your boundary; budget, concurrency and merge stay with your team</li><li data-ko>귀사 경계 안 컨테이너; 예산·동시 수·머지는 귀사 팀에</li><li data-en>Every step leaves evidence — issue, session, PR, JSON event log for your SIEM</li><li data-ko>모든 단계가 증거를 남김 — 이슈·세션·PR·SIEM용 JSON 로그</li><li data-en>Verified live: 3 findings → 3 PRs → 3 merged</li><li data-ko>라이브 검증: finding 3건 → PR 3건 → 머지 3건</li></ul></div>
+      <div class="card accent c"><h3 data-en>2 · Extensible — only the issue source changes</h3><h3 data-ko>2 · 확장 가능 — 바뀌는 건 이슈 소스뿐</h3><ul><li data-en>Network equipment security baselines &amp; inspection guidelines</li><li data-ko>네트워크 장비 보안 기준선·점검 가이드라인</li><li data-en>Legacy customer-data systems across the estate</li><li data-ko>고객 데이터 전체 레거시 시스템</li><li data-en>Compatibility &amp; vulnerability management with existing systems</li><li data-ko>기존 시스템과의 호환성·취약점 관리</li><li data-en>Your real scanners (SAST / DAST / SCA) as the trigger</li><li data-ko>귀사 실제 스캐너(SAST/DAST/SCA)를 트리거로</li></ul></div>
+      <div class="card accent o"><h3 data-en>3 · Improving — the feedback loop</h3><h3 data-ko>3 · 개선 — 피드백 루프</h3><ul><li data-en><b>Fix → Red:</b> merged fixes show which attacks no longer land, which detection rules to sharpen</li><li data-ko><b>수정 → 레드:</b> 머지된 수정이 더 이상 통하지 않는 공격·다듬을 탐지 규칙을 알려줌</li><li data-en><b>Review → Blue:</b> what your reviewers change tightens guardrails and Devin's brief</li><li data-ko><b>리뷰 → 블루:</b> 리뷰어가 고친 내용이 가드레일과 Devin 브리프를 조임</li><li data-en><b>SOC → You:</b> metrics decide where the next ACU goes; low-risk classes graduate to policy auto-merge</li><li data-ko><b>SOC → 리더십:</b> 지표가 다음 ACU의 방향을 정하고, 저위험 클래스는 정책 자동 머지로 승격</li></ul></div>
+    </div>
+    <p class="lead" style="margin-top:26px;font-size:18px" data-en>Operations feed the system; the system gets better — that is what turns red and blue into a <b>true purple team</b>.</p>
+    <p class="lead" style="margin-top:26px;font-size:18px" data-ko>운영이 시스템을 바꾸고, 시스템은 점점 나아집니다 — 그것이 레드와 블루를 <b>진짜 퍼플팀</b>으로 만듭니다.</p>
+  </div>
+  <div class="foot"><span>WHEN</span><span>05</span></div>
+</section>
+
+<!-- 6 RECAP: why Devin -->
+<section class="slide">
+  <div class="top"><div class="brand"><span class="dot"></span>TO RECAP · WHY DEVIN</div><span class="tag why">Why</span></div>
+  <div class="body">
+    <h2 data-en>To recap: why does this have to be <em>Devin</em>?</h2>
+    <h2 data-ko>정리하면: 왜 이게 <em>Devin</em>이어야 하는가?</h2>
+    <div class="grid g2" style="gap:18px">
+      <div class="card accent"><h3 data-en>1 · Speed to value</h3><h3 data-ko>1 · Speed to value</h3><p data-en>Everything you just saw — attack workflow, guardrails, SOC, the fixes themselves — was built to <b>working level in days</b>, with minimal setup. A remediation is one API call; a reviewable PR comes back in minutes, 24/7.</p><p data-ko>방금 보신 전부 — 공격 워크플로우, 가드레일, SOC, 수정 자체 — 가 최소 설정으로 <b>며칠 만에 working level</b>로 만들어졌습니다. 복구 하나가 API 호출 하나이고, 리뷰 가능한 PR이 몇 분 안에, 24시간 돌아옵니다.</p></div>
+      <div class="card accent c"><h3 data-en>2 · Cost you control</h3><h3 data-ko>2 · 통제되는 비용</h3><p data-en>Cost is the deciding factor in AI adoption right now. Here it is bounded twice: by <b>your</b> guardrails — per-session cap, concurrency, a hard budget ceiling — and by the platform itself, where compute is metered per session and Devin's modes (e.g. Fusion) let you tune cost against depth per task.</p><p data-ko>지금 AI 도입의 결정 요인은 비용입니다. 여기선 두 겹으로 묶입니다: <b>귀사</b>의 가드레일 — 세션당 캡·동시 수·하드 예산 상한 — 그리고 플랫폼 자체 — 세션 단위 미터링, 그리고 Fusion 같은 모드로 작업별 비용 대 깊이를 조절.</p></div>
+      <div class="card accent" style="border-left-color:var(--warn)"><h3 data-en>3 · Loop engineering, not one-shot code</h3><h3 data-ko>3 · 한 번 짜고 끝이 아닌 loop engineering</h3><p data-en>Devin doesn't stop at the spec. It runs the tests, finds what's broken, fixes it, and re-verifies until the goal is met — this demo itself was built that way, with Devin catching and fixing its own bugs end-to-end. That is what makes an autonomous fix trustworthy enough to review, not rewrite.</p><p data-ko>Devin은 요구사항 구현에서 멈추지 않습니다. 테스트를 돌리고, 깨진 곳을 찾고, 고치고, 목표에 닿을 때까지 재검증합니다 — 이 데모 자체도 Devin이 자기 버그를 찾아 고치며 만들어졌습니다. 그래서 자율 수정이 "다시 짜기"가 아닌 "리뷰"만 하면 되는 수준이 됩니다.</p></div>
+      <div class="card accent o"><h3 data-en>4 · Judgement inside your boundary — AI Sovereignty</h3><h3 data-ko>4 · 귀사 경계 안의 판단 — AI Sovereignty</h3><p data-en>These fixes need judgement, not templates — and a telecom is critical infrastructure. Devin proposes, <b>you</b> merge; it runs on your GitHub, your budget, your audit log. You own the loop — the agent is a governed worker behind one API. That is also why every next step on the previous slide is possible without re-architecting.</p><p data-ko>이 수정들은 템플릿이 아닌 판단이 필요하고, 통신사는 핵심 인프라입니다. Devin은 제안하고 <b>귀사</b>가 머지합니다; 귀사의 GitHub·예산·감사 로그 위에서 돕니다. 루프는 귀사 것이고, 에이전트는 API 하나 뒤의 통제된 작업자입니다. 그래서 앞 슬라이드의 다음 단계들이 재설계 없이 가능합니다.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>WHY · RECAP</span><span>06</span></div>
+</section>
+
+<!-- 7 CLOSE -->
+<section class="slide title">
+  <div class="top"><div class="brand"><span class="dot"></span>DEVIN PURPLE TEAM</div><span class="tag">Close</span></div>
+  <div class="body">
+    <h1 style="font-size:50px;max-width:1300px" data-en>Remediate at <span class="blue">machine speed</span>.<br>Keep every decision <span class="blue">human</span>.<br><span class="muted" style="font-size:34px">That is why it has to be Devin.</span></h1>
+    <h1 style="font-size:50px;max-width:1300px" data-ko><span class="blue">기계의 속도</span>로 복구하고,<br>모든 결정은 <span class="blue">사람</span>이 내립니다.<br><span class="muted" style="font-size:34px">그래서 Devin이어야 합니다.</span></h1>
+    <p class="lead" style="margin-top:36px" data-en>Thank you.</p>
+    <p class="lead" style="margin-top:36px" data-ko>감사합니다.</p>
+  </div>
+  <div class="foot"><span>Thank you</span><span>07</span></div>
+</section>
+
+</div>
+<div class="progress" id="progress"></div>
+<div class="kbd">← → SPACE · F fullscreen · L language</div>
+<script>
+const slides=[...document.querySelectorAll('.slide')];let i=0;
+function show(n){i=(n+slides.length)%slides.length;slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+  document.getElementById('progress').style.width=((i+1)/slides.length*100)+'%';location.hash=i+1;}
+function lang(ko){document.body.classList.toggle('ko',ko);document.getElementById('btn-en').classList.toggle('on',!ko);document.getElementById('btn-ko').classList.toggle('on',ko);}
+document.getElementById('btn-en').onclick=()=>lang(false);document.getElementById('btn-ko').onclick=()=>lang(true);
+addEventListener('keydown',e=>{if(['ArrowRight',' ','PageDown'].includes(e.key)){e.preventDefault();show(i+1);}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();show(i-1);}
+  else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();}
+  else if(e.key==='l'||e.key==='L'){lang(!document.body.classList.contains('ko'));}});
+addEventListener('click',e=>{if(!e.target.closest('.lang'))show(i+1);});
+show(parseInt(location.hash.slice(1))-1||0);
+</script>
+</body>
+</html>
