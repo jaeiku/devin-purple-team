@@ -119,12 +119,26 @@ function renderFeed(data) {
       <td class="mono">${s ? `${s.acu_consumed} / ${s.acu_limit}` : "&mdash;"}</td>
       <td>${s && s.pr_url ? `<a href="${escapeHtml(s.pr_url)}" target="_blank" rel="noopener">PR</a>` : "&mdash;"}</td>
       <td><div class="progress"><div style="width:${progress}%"></div></div></td>
+      <td><button class="remove-btn" data-id="${inj.id}" data-label="${escapeHtml(inj.issue_number ? `#${inj.issue_number}` : inj.title)}" title="Remove from dashboard">&times;</button></td>
     </tr>`;
   });
   $("feed-body").innerHTML = rows.length
     ? rows.join("")
-    : '<tr><td colspan="9" class="muted">No injections yet — trigger one from the red team console.</td></tr>';
+    : '<tr><td colspan="10" class="muted">No injections yet — trigger one from the red team console.</td></tr>';
 }
+
+async function removeInjection(id, label) {
+  if (!confirm(`Remove ${label} and its Devin session from the dashboard?`)) return;
+  const res = await fetch(`/api/injections/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`delete ${id} -> ${res.status}`);
+  await refresh();
+}
+
+$("feed-body").addEventListener("click", (ev) => {
+  const btn = ev.target.closest(".remove-btn");
+  if (!btn) return;
+  removeInjection(btn.dataset.id, btn.dataset.label).catch((err) => console.error(err));
+});
 
 function renderLog(events) {
   $("log").innerHTML = events

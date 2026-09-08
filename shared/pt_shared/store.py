@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from .models import (
@@ -51,6 +51,21 @@ def get_injection_by_issue(db: Session, issue_number: int) -> Injection | None:
     return db.scalar(
         select(Injection).where(Injection.issue_number == issue_number)
     )
+
+
+def delete_injection(db: Session, injection_id: int) -> Injection | None:
+    """Remove an injection and every session that was spawned for it."""
+
+    injection = db.get(Injection, injection_id)
+    if injection is None:
+        return None
+    owned = DevinSession.injection_id == injection_id
+    if injection.issue_number:
+        owned = owned | (DevinSession.issue_number == injection.issue_number)
+    db.execute(delete(DevinSession).where(owned))
+    db.delete(injection)
+    db.commit()
+    return injection
 
 
 # --- sessions -------------------------------------------------------------
