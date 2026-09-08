@@ -237,6 +237,15 @@ class GitHubClient:
             self._request("GET", f"/repos/{self._repo}/issues/{number}").json()
         )
 
+    def close_issue(self, number: int) -> dict[str, Any]:
+        self._assert_allowed(self._repo)
+        response = self._request(
+            "PATCH",
+            f"/repos/{self._repo}/issues/{number}",
+            json={"state": "closed", "state_reason": "completed"},
+        )
+        return dict(response.json())
+
     def get_pull(self, number: int) -> dict[str, Any]:
         return dict(
             self._request("GET", f"/repos/{self._repo}/pulls/{number}").json()

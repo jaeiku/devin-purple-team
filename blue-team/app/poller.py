@@ -377,7 +377,9 @@ def watch_pull_requests(db: Session, settings: Settings) -> int:
         record for record in records if not record.simulated and settings.github_token
     ]
 
-    def mark_merged(record: DevinSession) -> None:
+    def mark_merged(
+        record: DevinSession, gh: GitHubClient | None = None
+    ) -> None:
         nonlocal changed
         record.pr_state = PRState.merged
         injection = get_injection_by_issue(db, record.issue_number)
@@ -394,6 +396,34 @@ def watch_pull_requests(db: Session, settings: Settings) -> int:
             },
             db=db,
         )
+        if gh is not None:
+            try:
+                issue = gh.get_issue(record.issue_number)
+                if issue.get("state") == "open":
+                    branch = (
+                        injection.branch
+                        if injection is not None and injection.branch
+                        else "the repository's default branch"
+                    )
+                    gh.comment_issue(
+                        record.issue_number,
+                        f"Fix PR #{record.pr_number} merged into `{branch}` "
+                        "— closing as remediated.",
+                    )
+                    gh.close_issue(record.issue_number)
+            except GitHubError as exc:
+                log_event(
+                    SERVICE,
+                    "issue_close_failed",
+                    f"could not close issue #{record.issue_number} after PR "
+                    f"#{record.pr_number} merged: {exc}",
+                    level="warning",
+                    data={
+                        "pr_number": record.pr_number,
+                        "issue_number": record.issue_number,
+                    },
+                    db=db,
+                )
         changed += 1
 
     def mark_closed(record: DevinSession) -> None:
@@ -438,7 +468,7 @@ def watch_pull_requests(db: Session, settings: Settings) -> int:
                         )
                         continue
                     if pull.get("merged_at"):
-                        mark_merged(record)
+                        mark_merged(record, gh)
                     elif pull.get("state") == "closed":
                         mark_closed(record)
         except GitHubError as exc:
